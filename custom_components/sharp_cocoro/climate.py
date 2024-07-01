@@ -40,13 +40,13 @@ SUPPORTED_FEATURES = (
         | ClimateEntityFeature.TURN_OFF
         | ClimateEntityFeature.TURN_ON
         | ClimateEntityFeature.TARGET_TEMPERATURE
-        | ClimateEntityFeature.SWING_MODE
+        # | ClimateEntityFeature.SWING_MODE
 )
 SUPPORTED_FEATURES_NO_TEMPERATURE = (
         ClimateEntityFeature.FAN_MODE
         | ClimateEntityFeature.TURN_OFF
         | ClimateEntityFeature.TURN_ON
-        | ClimateEntityFeature.SWING_MODE
+        # | ClimateEntityFeature.SWING_MODE
 )
 
 
