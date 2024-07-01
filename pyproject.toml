@@ -6,6 +6,7 @@ authors = ["David Mohl <git@d.sh>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
+python = ">=3.8"
 sharp-cocoro = {git = "http://github.com/dvcrn/sharp-cocoro.git"}
 
 
