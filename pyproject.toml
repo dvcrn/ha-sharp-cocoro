@@ -1,0 +1,14 @@
+[tool.poetry]
+name = "ha-sharp-cocoro"
+version = "0.1.0"
+description = ""
+authors = ["David Mohl <git@d.sh>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+sharp-cocoro = {git = "http://github.com/dvcrn/sharp-cocoro.git"}
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

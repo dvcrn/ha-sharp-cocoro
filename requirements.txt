@@ -1,1 +1,1 @@
-httpx==0.27.0
+sharp-cocoro @ git+http://github.com/dvcrn/sharp-cocoro.git@c1b3dc018d1a74b85130e06e8ac9ecc68f87f206
