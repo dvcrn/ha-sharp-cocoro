@@ -29,6 +29,7 @@ class SharpCocoroData:
     """State container for Sharp Cocoro integration."""
     cocoro: Cocoro
     device: Device
+    hass: HomeAssistant
 
     async def setup_interval(self):
         """Refresh data."""
@@ -44,6 +45,9 @@ class SharpCocoroData:
             if device.device_id == self.device.device_id:
                 self.device = device
                 break
+
+        self.hass.bus.async_fire("sharp_cocoro.device_updated", {"device_id": device.device_id})
+
 
 # TODO Update entry annotation
 async def async_setup_entry(hass: HomeAssistant, entry: New_NameConfigEntry) -> bool:
@@ -62,13 +66,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: New_NameConfigEntry) -> 
         # TODO 2. Validate the API connection (and authentication)
         # TODO 3. Store an API object for your platforms to access
         # entry.runtime_data = MyAPI(...)
-        scd = SharpCocoroData(cocoro, device)
-
-        async def refresh_data(event):
-            await scd.async_refresh_data(event)
-            hass.bus.async_fire("sharp_cocoro.device_updated", {"device_id": device.device_id})
-
-        async_track_time_interval(hass, refresh_data, timedelta(seconds=15))        
+        scd = SharpCocoroData(cocoro, device, hass)
+        async_track_time_interval(hass, scd.async_refresh_data, timedelta(seconds=15))        
 
         entry.runtime_data = scd
 

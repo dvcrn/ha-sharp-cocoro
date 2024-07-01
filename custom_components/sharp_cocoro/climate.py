@@ -2,7 +2,7 @@ from typing import Any
 
 from .const import DOMAIN
 from . import SharpCocoroData
-from homeassistant.components.climate import ClimateEntity, HVACMode, ClimateEntityFeature, HVACAction, FAN_HIGH, FAN_AUTO, FAN_MEDIUM, FAN_LOW, PRECISION_WHOLE, PRECISION_TENTHS
+from homeassistant.components.climate import ClimateEntity, HVACMode, ClimateEntityFeature, HVACAction, FAN_HIGH, FAN_AUTO, FAN_MEDIUM, FAN_LOW, PRECISION_WHOLE, PRECISION_TENTHS, SWING_ON, SWING_OFF, SWING_VERTICAL
 from homeassistant.components.fan import FanEntity
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.config_entries import ConfigEntry
@@ -30,13 +30,23 @@ HVAC_MODES = [
     HVACMode.AUTO,
     HVACMode.FAN_ONLY
 ]
-HVAC_MODES_MYAUTO = [*HVAC_MODES, HVACMode.HEAT_COOL]
+
+SWING_MODES = [
+SWING_ON, SWING_OFF, SWING_VERTICAL, "FOOBAR"
+]
+
 SUPPORTED_FEATURES = (
         ClimateEntityFeature.FAN_MODE
         | ClimateEntityFeature.TURN_OFF
         | ClimateEntityFeature.TURN_ON
         | ClimateEntityFeature.TARGET_TEMPERATURE
-        # | ClimateEntityFeature.SWING_MODE
+        | ClimateEntityFeature.SWING_MODE
+)
+SUPPORTED_FEATURES_NO_TEMPERATURE = (
+        ClimateEntityFeature.FAN_MODE
+        | ClimateEntityFeature.TURN_OFF
+        | ClimateEntityFeature.TURN_ON
+        | ClimateEntityFeature.SWING_MODE
 )
 
 
@@ -46,6 +56,7 @@ class SharpCocoroAircon(ClimateEntity):
     _attr_target_temperature_step = PRECISION_TENTHS
     _attr_supported_features = SUPPORTED_FEATURES
     _attr_hvac_modes = HVAC_MODES
+    _attr_swing_modes = SWING_MODES
 
     @property
     def _device(self) -> Aircon:
@@ -132,8 +143,6 @@ class SharpCocoroAircon(ClimateEntity):
         print(await self._cocoro.execute_queued_updates(self._device))
 
 
-
-
     def set_swing_mode(self, swing_mode: str) -> None:
         pass
 
@@ -147,7 +156,6 @@ class SharpCocoroAircon(ClimateEntity):
         pass
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        print("turno n")
         self._device.queue_power_on()
         opmode = self._device.get_property_status(StatusCode.OPERATION_MODE)
         if opmode:
@@ -162,6 +170,21 @@ class SharpCocoroAircon(ClimateEntity):
     def toggle(self) -> None:
         pass
 
+    @property 
+    def supported_features(self) -> int:
+        """Return the list of supported features."""
+        print("supported features...?")
+        operation_mode = self._device.get_operation_mode()
+
+        if operation_mode in [
+            ValueSingle.OPERATION_AUTO,
+            ValueSingle.OPERATION_DEHUMIDIFY,
+            ValueSingle.OPERATION_VENTILATION,
+        ]:
+            return SUPPORTED_FEATURES_NO_TEMPERATURE
+            
+        return SUPPORTED_FEATURES
+
     @property
     def temperature_unit(self) -> str:
         """Return the unit of measurement used by the platform."""
@@ -173,6 +196,9 @@ class SharpCocoroAircon(ClimateEntity):
 
         print("operation mode -- " + str(operation_mode))
         print("is DRY??? -- " + operation_mode == ValueSingle.OPERATION_DEHUMIDIFY)
+
+        if self._device.get_power_status() == ValueSingle.POWER_OFF:
+            return HVACMode.OFF
 
         # switch on operation_mode
         if operation_mode == ValueSingle.OPERATION_HEAT:
@@ -189,7 +215,8 @@ class SharpCocoroAircon(ClimateEntity):
         return HVACMode.AUTO
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
-        print("set hvac mode", hvac_mode)
+        self._device.queue_power_on()
+
         if hvac_mode == HVACMode.HEAT:
             self._device.queue_temperature_update(self._device.get_temperature())
             self._device.queue_operation_mode_update(ValueSingle.OPERATION_HEAT)
@@ -212,6 +239,17 @@ class SharpCocoroAircon(ClimateEntity):
     @property
     def hvac_action(self) -> HVACAction | None:
         operation_mode = self._device.get_operation_mode()
+        operation_mode_property = self._device.get_property(StatusCode.OPERATION_MODE)
+        assert isinstance(operation_mode_property, SingleProperty)
+
+        return next(
+            (
+                v['name']
+                for v in operation_mode_property.valueSingle
+                if v["code"] == operation_mode.value
+            )
+        )
+
         # switch on operation_mode
         if operation_mode == ValueSingle.OPERATION_HEAT:
             return HVACAction.HEATING
@@ -308,11 +346,7 @@ class SharpCocoroAircon(ClimateEntity):
 
     @property
     def swing_mode(self) -> str | None:
-        """Return the swing setting.
-
-        Requires ClimateEntityFeature.SWING_MODE.
-        """
-        return self._attr_swing_mode
+        return SWING_ON
 
     @property
     def swing_modes(self) -> list[str] | None:
@@ -326,4 +360,4 @@ class SharpCocoroAircon(ClimateEntity):
         """Execute queued updates and refresh state."""
         print("execute and refresh", self._device.property_updates)
         await self._cocoro.execute_queued_updates(self._device)
-        await self._cocoro_data.refresh_data()
+        # await self._cocoro_data.async_refresh_data()
