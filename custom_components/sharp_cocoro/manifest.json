@@ -1,16 +1,16 @@
 {
   "domain": "sharp_cocoro",
   "name": "Sharp Cocoro Air",
-  "codeowners": [
-    "@dvcrn"
-  ],
+  "codeowners": ["@dvcrn"],
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://www.home-assistant.io/integrations/sharp_cocoro",
   "homekit": {},
   "iot_class": "cloud_polling",
-  "requirements": [],
+  "requirements": [
+    "sharp-cocoro @ git+http://github.com/dvcrn/sharp-cocoro.git@c1b3dc018d1a74b85130e06e8ac9ecc68f87f206"
+  ],
   "ssdp": [],
   "zeroconf": [],
-	"version": "1.0"
+  "version": "1.0"
 }
