@@ -56,9 +56,7 @@ class SharpCocoroAirFan(FanEntity):
 
 
         self.name = self._device.name + " Fan"
-        # Initialize other necessary attributes
-        # concat device_id and "fan"
-        self.unique_id = self._device.device_id 
+        self.unique_id = str(self._device.device_id)
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, self._device.device_id)},
             name=self._device.name,

@@ -74,7 +74,7 @@ class SharpCocoroAircon(ClimateEntity):
         self._cocoro_data = cocoro_data
 
         self.name = self._device.name
-        self.unique_id = self._device.device_id
+        self.unique_id = str(self._device.device_id)
 
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, self._device.device_id)},
