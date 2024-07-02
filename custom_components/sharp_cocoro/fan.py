@@ -1,7 +1,7 @@
 from typing import Any, List, Optional
 
 from homeassistant.components.climate import ClimateEntity, HVACMode, ClimateEntityFeature, HVACAction, FAN_HIGH, FAN_AUTO, FAN_MEDIUM, FAN_LOW, PRECISION_WHOLE, PRECISION_TENTHS
-from homeassistant.components.fan import FanEntity, FanEntityFeature
+from homeassistant.components.fan import FanEntity, FanEntityFeature, ATTR_PRESET_MODE
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfTemperature
@@ -23,7 +23,7 @@ import logging
 PRESET_MODE_AUTO = "Auto"
 PRESET_MODE_NORMAL = "Normal"
 
-FEATURES = FanEntityFeature.SET_SPEED | FanEntityFeature.PRESET_MODE
+FEATURES = FanEntityFeature.SET_SPEED | FanEntityFeature.PRESET_MODE 
 SUPPORTED_PRESET_MODES = [PRESET_MODE_AUTO, PRESET_MODE_NORMAL]
 SPEED_RANGE = (1, 8)
 
@@ -58,8 +58,7 @@ class SharpCocoroAirFan(FanEntity):
         self.name = self._device.name + " Fan"
         # Initialize other necessary attributes
         # concat device_id and "fan"
-        self.unique_id = "%s_%s" % (self._device.device_id, "fan")
-
+        self.unique_id = self._device.device_id 
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, self._device.device_id)},
             name=self._device.name,
@@ -107,6 +106,9 @@ class SharpCocoroAirFan(FanEntity):
     def percentage(self) -> int | None:
         windspeed = self._device.get_windspeed()
 
+        if windspeed == ValueSingle.WINDSPEED_LEVEL_AUTO:
+            return 100
+
         if windspeed not in self._speed_mapping:
             return None  # or some default value
 
@@ -144,8 +146,8 @@ class SharpCocoroAirFan(FanEntity):
         print(target_speed_setting)
         self._device.queue_windspeed_update(target_speed_setting)
         self._device.queue_power_on()
+        await self.execute_and_refresh()
 
-        pass
 
     @property
     def preset_modes(self) -> List[str]:
@@ -155,11 +157,20 @@ class SharpCocoroAirFan(FanEntity):
     @property
     def preset_mode(self) -> Optional[str]:
         """Return the current selected preset mode."""
-        return PRESET_MODE_AUTO
+        windspeed = self._device.get_windspeed()
+        if windspeed == ValueSingle.WINDSPEED_LEVEL_AUTO:
+            return PRESET_MODE_AUTO
 
-    def async_set_preset_mode(self, preset_mode: str) -> None:
+        return PRESET_MODE_NORMAL
+
+    async def async_set_preset_mode(self, preset_mode: str) -> None:
         print("set preset mode called", preset_mode)
-        pass
+        if preset_mode == PRESET_MODE_AUTO:
+            self._device.queue_windspeed_update(ValueSingle.WINDSPEED_LEVEL_AUTO)
+        else:
+            self._device.queue_windspeed_update(ValueSingle.WINDSPEED_LEVEL_4)
+
+        await self.execute_and_refresh()
 
     def set_direction(self, direction: str) -> None:
         pass

@@ -74,7 +74,7 @@ class SharpCocoroAircon(ClimateEntity):
         self._cocoro_data = cocoro_data
 
         self.name = self._device.name
-        self.unique_id = "%s_%s" % (self.unique_id, "aircon")
+        self.unique_id = self._device.device_id
 
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, self._device.device_id)},
@@ -363,4 +363,4 @@ class SharpCocoroAircon(ClimateEntity):
         """Execute queued updates and refresh state."""
         print("execute and refresh", self._device.property_updates)
         await self._cocoro.execute_queued_updates(self._device)
-        # await self._cocoro_data.async_refresh_data()
+        await self._cocoro_data.async_refresh_data()

@@ -31,12 +31,6 @@ class SharpCocoroData:
     device: Device
     hass: HomeAssistant
 
-    async def setup_interval(self):
-        """Refresh data."""
-        while True:
-            await asyncio.sleep(timedelta(seconds=10))
-            await self.async_refresh_data()
-
     async def async_refresh_data(self, _=None):
         """Refresh data."""
         print("refreshing device", _)

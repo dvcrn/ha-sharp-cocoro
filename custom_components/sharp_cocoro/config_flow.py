@@ -81,6 +81,7 @@ class ConfigFlow(ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Handle the initial step."""
+        print(user_input)
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
