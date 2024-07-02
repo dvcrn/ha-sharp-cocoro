@@ -238,17 +238,20 @@ class SharpCocoroAircon(ClimateEntity):
 
     @property
     def hvac_action(self) -> HVACAction | None:
+        if self._device.get_power_status() == ValueSingle.POWER_OFF:
+            return HVACAction.OFF
+
         operation_mode = self._device.get_operation_mode()
         operation_mode_property = self._device.get_property(StatusCode.OPERATION_MODE)
         assert isinstance(operation_mode_property, SingleProperty)
 
-        return next(
-            (
-                v['name']
-                for v in operation_mode_property.valueSingle
-                if v["code"] == operation_mode.value
-            )
-        )
+        # return next(
+        #     (
+        #         v['name']
+        #         for v in operation_mode_property.valueSingle
+        #         if v["code"] == operation_mode.value
+        #     )
+        # )
 
         # switch on operation_mode
         if operation_mode == ValueSingle.OPERATION_HEAT:
@@ -262,9 +265,9 @@ class SharpCocoroAircon(ClimateEntity):
         elif operation_mode == ValueSingle.OPERATION_AUTO:
             return HVACAction.IDLE
         elif operation_mode == ValueSingle.OPERATION_OTHER:
-            return "OTHER"
+            return HVACAction.FAN
 
-        return HVACMode.AUTO
+        return HVACAction.OFF
 
     @property
     def current_temperature(self) -> float | None:
