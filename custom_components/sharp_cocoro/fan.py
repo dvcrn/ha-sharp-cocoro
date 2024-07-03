@@ -13,7 +13,7 @@ from homeassistant.util.percentage import (
     ranged_value_to_percentage,
 )
 from sharp_cocoro import Cocoro, Aircon
-from sharp_cocoro.devices.aircon.aircon_properties import ValueSingle
+from sharp_cocoro.devices.aircon.aircon_properties import ValueSingle, StatusCode
 from .const import DOMAIN
 from . import SharpCocoroData
 import math
@@ -173,9 +173,13 @@ class SharpCocoroAirFan(FanEntity):
     def set_direction(self, direction: str) -> None:
         pass
 
-    async def async_turn_on(self, percentage: int | None = None, preset_mode: str | None = None, **kwargs: Any) -> None:
-        print("turn on called", percentage, preset_mode)
-        pass
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        self._device.queue_power_on()
+        opmode = self._device.get_property_status(StatusCode.OPERATION_MODE)
+        if opmode:
+            self._device.queue_property_status_update(opmode)
+
+        await self.execute_and_refresh()
 
     def oscillate(self, oscillating: bool) -> None:
         pass
