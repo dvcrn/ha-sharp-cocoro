@@ -2,7 +2,17 @@
 
 Homeassistant integration for Sharp Cocoro Air (Sharp Aircon)
 
+![aircon](./aircon.png)
+
 Super WIP
+
+## What's working
+
+Will try to load supported devices from Sharp Cocoro Air API and configure them
+
+Currently supported device types:
+
+- Aircon 
 
 ## Installation
 
