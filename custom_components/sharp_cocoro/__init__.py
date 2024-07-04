@@ -2,27 +2,26 @@
 
 from __future__ import annotations
 
+import logging
+from dataclasses import dataclass
+from datetime import timedelta
 from typing import Any
 
+from sharp_cocoro import Cocoro, Device
+
+from homeassistant.components.fan import FanEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, Event
-from homeassistant.components.fan import FanEntity
 from homeassistant.helpers.event import async_track_time_interval
-from sharp_cocoro import Cocoro, Device
-from dataclasses import dataclass
-import asyncio
-from datetime import timedelta
+
 from .config_flow import CONF_KEY, CONF_SECRET
 
-# TODO List the platforms that you want to support.
-# For your initial PR, limit it to 1 platform.
 PLATFORMS: list[Platform] = [Platform.FAN, Platform.CLIMATE, Platform.SENSOR]
 
-# TODO Create ConfigEntry type alias with API object
-# TODO Rename type alias and update all entry annotations
-type New_NameConfigEntry = ConfigEntry[Cocoro]  # noqa: F821
+type CocoroConfigEntry = ConfigEntry[Cocoro]
 
+_LOGGER = logging.getLogger(__name__)
 
 @dataclass
 class SharpCocoroData:
@@ -32,34 +31,29 @@ class SharpCocoroData:
     hass: HomeAssistant
 
     async def async_refresh_data(self, _=None):
-        """Refresh data."""
-        print("refreshing device", _)
+        """Refresh device data."""
+        _LOGGER.info("Refreshing device data")
         devices = await self.cocoro.query_devices()
         for device in devices:
             if device.device_id == self.device.device_id:
                 self.device = device
                 break
 
-        self.hass.bus.async_fire("sharp_cocoro.device_updated", {"device_id": device.device_id})
+        self.hass.bus.async_fire("sharp_cocoro.device_updated", {"device_id": self.device.device_id})
 
-
-# TODO Update entry annotation
-async def async_setup_entry(hass: HomeAssistant, entry: New_NameConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: CocoroConfigEntry) -> bool:
     """Set up Sharp Cocoro Air from a config entry."""
     app_secret = entry.data[CONF_SECRET]
     app_key = entry.data[CONF_KEY]
-    print("initializing cocoro air", app_key)
+    _LOGGER.info("Initializing Sharp Cocoro Air with app key: %s", app_key)
+
     async with Cocoro(app_secret=app_secret, app_key=app_key) as cocoro:
         await cocoro.login()
         devices = await cocoro.query_devices()
         device = devices[0]
 
-        print("discovered device: ", device.name, device.device_id)
+        _LOGGER.info("Discovered device: %s (ID: %s)", device.name, device.device_id)
 
-        # TODO 1. Create API instance
-        # TODO 2. Validate the API connection (and authentication)
-        # TODO 3. Store an API object for your platforms to access
-        # entry.runtime_data = MyAPI(...)
         scd = SharpCocoroData(cocoro, device, hass)
         async_track_time_interval(hass, scd.async_refresh_data, timedelta(seconds=15))        
 
@@ -69,10 +63,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: New_NameConfigEntry) -> 
 
     return True
 
-
-# TODO Update entry annotation
-async def async_unload_entry(hass: HomeAssistant, entry: New_NameConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: CocoroConfigEntry) -> bool:
     """Unload a config entry."""
+    _LOGGER.info("Unloading Sharp Cocoro Air integration")
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-
-

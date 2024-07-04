@@ -1,5 +1,6 @@
 from typing import Any
 import asyncio
+import logging
 
 from .const import DOMAIN
 from . import SharpCocoroData
@@ -23,6 +24,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from sharp_cocoro import Cocoro, Aircon
 from sharp_cocoro.properties import SingleProperty
 from sharp_cocoro.devices.aircon.aircon_properties import ValueSingle, StatusCode, FanDirection
+
+_LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     """Set up the Sharp Cocoro Air fan platform."""
@@ -128,6 +131,7 @@ class SharpCocoroAircon(ClimateEntity):
             self.async_write_ha_state()
 
     async def async_set_temperature(self, temperature: float, **kwargs: Any) -> None:
+        _LOGGER.info(f"Setting temperature to {temperature}")
         temperature = float(temperature)
         self._device.queue_temperature_update(temperature)
         self._device.queue_power_on()
@@ -137,6 +141,7 @@ class SharpCocoroAircon(ClimateEntity):
         await self.execute_and_refresh()
 
     async def async_set_swing_mode(self, swing_mode: str) -> None:
+        _LOGGER.info(f"Setting swing mode to {swing_mode}")
         target_mode = next(
             (k for k, v in FANDIRECTION_SWING_MAPPING.items() if v == swing_mode), None
         )
@@ -144,6 +149,7 @@ class SharpCocoroAircon(ClimateEntity):
         await self.execute_and_refresh()
 
     async def async_turn_on(self, **kwargs: Any) -> None:
+        _LOGGER.info("Turning on the device")
         temp = self._device.get_temperature()
         self._device.queue_power_on()
         self._device.queue_temperature_update(temp)
@@ -153,6 +159,7 @@ class SharpCocoroAircon(ClimateEntity):
         await self.execute_and_refresh()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
+        _LOGGER.info("Turning off the device")
         self._device.queue_power_off()
         await self.execute_and_refresh()
 
@@ -184,6 +191,7 @@ class SharpCocoroAircon(ClimateEntity):
         return mode_mapping.get(operation_mode, HVACMode.AUTO)
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
+        _LOGGER.info(f"Setting HVAC mode to {hvac_mode}")
         self._device.queue_power_on()
         self._device.queue_temperature_update(self._device.get_temperature())
 
@@ -233,7 +241,8 @@ class SharpCocoroAircon(ClimateEntity):
         windspeed = self._device.get_windspeed()
         return WINDSPEED_FANMODE_MAPPING.get(windspeed.value, FAN_AUTO)
 
-    async def async_handle_set_fan_mode_service(self, fan_mode: str) -> None:
+    async def async_set_fan_mode(self, fan_mode: str) -> None:
+        _LOGGER.info(f"Setting fan mode to {fan_mode}")
         self._device.queue_windspeed_update(FANMODE_WINDSPEED_MAPPING[fan_mode])
         await self.execute_and_refresh()
 
