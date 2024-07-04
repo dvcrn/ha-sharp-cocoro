@@ -130,7 +130,7 @@ httpx = "^0.27.0"
 type = "git"
 url = "http://github.com/dvcrn/sharp-cocoro.git"
 reference = "HEAD"
-resolved_reference = "653c02546d605d57c4e8beccbb18dfee7346d03c"
+resolved_reference = "19b3c8a45be7f44cae40600b1eea437eeb0d3a87"
 
 [[package]]
 name = "sniffio"
