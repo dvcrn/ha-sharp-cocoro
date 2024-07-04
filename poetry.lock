@@ -116,7 +116,7 @@ files = [
 
 [[package]]
 name = "sharp-cocoro"
-version = "0.1.1"
+version = "0.1.2"
 description = "A Python SDK for the Cocoro API"
 optional = false
 python-versions = ">=3.8"
@@ -130,7 +130,7 @@ httpx = "^0.27.0"
 type = "git"
 url = "http://github.com/dvcrn/sharp-cocoro.git"
 reference = "HEAD"
-resolved_reference = "ebb915f288182afc9c400c04ff0156eb52cd72fd"
+resolved_reference = "ab525713a3a1bb77432293200694f1c8cd77e4bc"
 
 [[package]]
 name = "sniffio"
