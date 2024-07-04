@@ -147,16 +147,12 @@ class SharpCocoroAircon(ClimateEntity):
         )
 
     async def _handle_device_update(self, event):
-        print("handle device update called", event)
         device_id = event.data.get("device_id")
         if device_id == self._device.device_id:
             # await self.async_update_ha_state()
             self.async_write_ha_state()
 
     async def async_set_temperature(self, temperature, **kwargs: Any) -> None:
-        print("set tmep mode")
-        print(kwargs)
-        print(temperature)
 
          # check type of temperature, convert to float if it isn't
         if not isinstance(temperature, float):
@@ -168,21 +164,16 @@ class SharpCocoroAircon(ClimateEntity):
         if opmode:
             self._device.queue_property_status_update(opmode)
 
-        print(await self._cocoro.execute_queued_updates(self._device))
 
     async def async_set_swing_mode(self, swing_mode: str) -> None:
-        print('async set swing mode', swing_mode)
         # reverse find swing mode from direction mapping
         target_mode = next(
             (k for k, v in FANDIRECTION_SWING_MAPPING.items() if v == swing_mode), None
         )
-        print("swing target mode: ", target_mode)
 
         self._device.queue_fan_direction_update(target_mode.value)
-        print(await self.execute_and_refresh())
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        print("turn on")
         temp = self._device.get_temperature()
 
         self._device.queue_power_on()
@@ -203,7 +194,6 @@ class SharpCocoroAircon(ClimateEntity):
     @property 
     def supported_features(self) -> int:
         """Return the list of supported features."""
-        print("supported features...?")
         operation_mode = self._device.get_operation_mode()
 
         if operation_mode in [
@@ -224,7 +214,6 @@ class SharpCocoroAircon(ClimateEntity):
     def hvac_mode(self) -> HVACMode | None:
         operation_mode = self._device.get_operation_mode()
 
-        print("operation mode -- " + str(operation_mode))
 
         if self._device.get_power_status() == ValueSingle.POWER_OFF:
             return HVACMode.OFF
@@ -301,12 +290,10 @@ class SharpCocoroAircon(ClimateEntity):
     @property
     def current_temperature(self) -> float | None:
         """Return the current temperature."""
-        print("current temp -- " + str(self._device.get_room_temperature()))
         return self._device.get_room_temperature()
 
     @property
     def target_temperature(self) -> float | None:
-        print("target temp -- " + str(self._device.get_state8().temperature))
         """Return the temperature we try to reach."""
         return self._device.get_state8().temperature
 
@@ -318,7 +305,6 @@ class SharpCocoroAircon(ClimateEntity):
     @property
     def fan_mode(self) -> str | None:
         windspeed = self._device.get_windspeed()
-        print("windspeed -- ", windspeed.name)
 
         # find in windspeed values
         # return self._windspeed[windspeed.value]
@@ -355,12 +341,10 @@ class SharpCocoroAircon(ClimateEntity):
     @property
     def swing_mode(self) -> str | None:
         swing_status = self._device.get_fan_direction()
-        print("swing status -- ", swing_status)
         return FANDIRECTION_SWING_MAPPING[swing_status.value]
 
     async def execute_and_refresh(self) -> None:
         """Execute queued updates and refresh state."""
-        print("execute and refresh", self._device.property_updates)
         await self._cocoro.execute_queued_updates(self._device)
         await asyncio.sleep(5)
         await self._cocoro_data.async_refresh_data()
