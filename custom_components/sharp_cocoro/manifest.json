@@ -1,5 +1,5 @@
 {
-  "domain": "sharp_cocoro",
+  "domain": "cocoro_air",
   "name": "Sharp Cocoro Air",
   "codeowners": ["@dvcrn"],
   "config_flow": true,
