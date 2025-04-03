@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ha-sharp-cocoro"
-version = "0.1.1"
+version = "1.2"
 description = ""
 authors = ["David Mohl <git@d.sh>"]
 readme = "README.md"
