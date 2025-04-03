@@ -1,4 +1,7 @@
 from typing import Any, List, Optional
+import asyncio
+import logging
+from functools import wraps
 
 from homeassistant.components.fan import (
     FanEntity,
@@ -15,9 +18,31 @@ from sharp_cocoro.devices.aircon.aircon_properties import ValueSingle, StatusCod
 from .const import DOMAIN
 from . import SharpCocoroData
 import math
-import logging
 
 _LOGGER = logging.getLogger(__name__)
+
+def debounce(wait_time):
+    """Decorator that will debounce a function for specified amount of time."""
+    def decorator(fn):
+        pending_task = None
+        
+        @wraps(fn)
+        async def debounced(*args, **kwargs):
+            nonlocal pending_task
+            
+            # Cancel any existing task
+            if pending_task is not None and not pending_task.done():
+                pending_task.cancel()
+                
+            # Create a new task with delay
+            async def delayed_call():
+                await asyncio.sleep(wait_time)
+                await fn(*args, **kwargs)
+                
+            pending_task = asyncio.create_task(delayed_call())
+            
+        return debounced
+    return decorator
 
 PRESET_MODE_AUTO = "Auto"
 PRESET_MODE_NORMAL = "Normal"
@@ -70,6 +95,9 @@ class SharpCocoroAirFan(FanEntity):
             ValueSingle.WINDSPEED_LEVEL_7: 7,
             ValueSingle.WINDSPEED_LEVEL_8: 8,
         }
+        
+        # Create debounced refresh function
+        self._debounced_refresh = debounce(5)(self._cocoro_data.async_refresh_data)
 
     async def async_added_to_hass(self):
         """Run when entity about to be added to hass."""
@@ -149,7 +177,8 @@ class SharpCocoroAirFan(FanEntity):
         await self.execute_and_refresh()
 
     async def execute_and_refresh(self) -> None:
-        """Execute queued updates and refresh state."""
+        """Execute queued updates and schedule a debounced refresh."""
         _LOGGER.info(f"Executing updates for Sharp Cocoro Air Fan: {self._device.property_updates}")
         await self._cocoro.execute_queued_updates(self._device)
-        await self._cocoro_data.async_refresh_data()
+        # Schedule debounced refresh
+        await self._debounced_refresh()

@@ -1,6 +1,7 @@
-from typing import Any
+from typing import Any, Optional
 import asyncio
 import logging
+from functools import wraps
 
 from .const import DOMAIN
 from . import SharpCocoroData
@@ -26,6 +27,29 @@ from sharp_cocoro.properties import SingleProperty
 from sharp_cocoro.devices.aircon.aircon_properties import ValueSingle, StatusCode, FanDirection
 
 _LOGGER = logging.getLogger(__name__)
+
+def debounce(wait_time):
+    """Decorator that will debounce a function for specified amount of time."""
+    def decorator(fn):
+        pending_task = None
+        
+        @wraps(fn)
+        async def debounced(*args, **kwargs):
+            nonlocal pending_task
+            
+            # Cancel any existing task
+            if pending_task is not None and not pending_task.done():
+                pending_task.cancel()
+                
+            # Create a new task with delay
+            async def delayed_call():
+                await asyncio.sleep(wait_time)
+                await fn(*args, **kwargs)
+                
+            pending_task = asyncio.create_task(delayed_call())
+            
+        return debounced
+    return decorator
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     """Set up the Sharp Cocoro Air fan platform."""
@@ -116,6 +140,9 @@ class SharpCocoroAircon(ClimateEntity):
         )
 
         self._attr_swing_modes = list(FANDIRECTION_SWING_MAPPING.values())
+        
+        # Create debounced refresh function
+        self._debounced_refresh = debounce(5)(self._cocoro_data.async_refresh_data)
 
     async def async_added_to_hass(self):
         """Run when entity about to be added to hass."""
@@ -252,7 +279,8 @@ class SharpCocoroAircon(ClimateEntity):
         return FANDIRECTION_SWING_MAPPING[swing_status.value]
 
     async def execute_and_refresh(self) -> None:
-        """Execute queued updates and refresh state."""
+        """Execute queued updates and schedule a debounced refresh."""
+        _LOGGER.info(f"Executing updates for Sharp Cocoro Aircon: {self._device.property_updates}")
         await self._cocoro.execute_queued_updates(self._device)
-        await asyncio.sleep(5)
-        await self._cocoro_data.async_refresh_data()
+        # Schedule debounced refresh
+        await self._debounced_refresh()
