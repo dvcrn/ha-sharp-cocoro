@@ -1,15 +1,25 @@
-[tool.poetry]
+[project]
 name = "ha-sharp-cocoro"
 version = "1.2"
 description = ""
-authors = ["David Mohl <git@d.sh>"]
+authors = [{name = "David Mohl", email = "git@d.sh"}]
 readme = "README.md"
-
-[tool.poetry.dependencies]
-python = ">=3.8"
-sharp-cocoro = {git = "http://github.com/dvcrn/sharp-cocoro.git"}
-
+requires-python = ">=3.11"
+dependencies = [
+    "sharp-cocoro @ git+http://github.com/dvcrn/sharp-cocoro.git",
+]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["custom_components"]
+
+[dependency-groups]
+dev = [
+    "homeassistant>=2024.3.3",
+]
