@@ -281,6 +281,30 @@ class SharpCocoroAircon(ClimateEntity):
     async def execute_and_refresh(self) -> None:
         """Execute queued updates and schedule a debounced refresh."""
         _LOGGER.info(f"Executing updates for Sharp Cocoro Aircon: {self._device.property_updates}")
-        await self._cocoro.execute_queued_updates(self._device)
-        # Schedule debounced refresh
-        await self._debounced_refresh()
+        
+        try:
+            await self._cocoro.execute_queued_updates(self._device)
+            # Schedule debounced refresh
+            await self._debounced_refresh()
+            
+        except Exception as e:
+            _LOGGER.error("Failed to execute updates: %s", e)
+            
+            # Try to re-authenticate on authentication errors
+            if "401" in str(e) or "unauthorized" in str(e).lower() or "authentication" in str(e).lower():
+                _LOGGER.info("Authentication error during execute, attempting to re-login")
+                try:
+                    await self._cocoro_data.async_login()
+                    # Retry the operation after re-authentication
+                    await self._cocoro.execute_queued_updates(self._device)
+                    await self._debounced_refresh()
+                    _LOGGER.info("Successfully executed updates after re-authentication")
+                    
+                except Exception as retry_error:
+                    _LOGGER.error("Failed to execute updates after re-authentication: %s", retry_error)
+                    # Clear the queued updates to prevent them from piling up
+                    self._device.property_updates.clear()
+            else:
+                # For non-authentication errors, clear the queue to prevent issues
+                _LOGGER.error("Non-authentication error during execute, clearing update queue")
+                self._device.property_updates.clear()
