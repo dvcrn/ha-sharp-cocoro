@@ -7,20 +7,20 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
-from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
-from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import HomeAssistantError
 from sharp_cocoro import Cocoro
 
 from .const import DOMAIN
+
+from homeassistant.config_entries import ConfigFlow
+from homeassistant.config_entries import ConfigFlowResult
+from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 
 _LOGGER = logging.getLogger(__name__)
 
 CONF_KEY = "app_key"
 CONF_SECRET = "app_secret"
 
-# TODO adjust the data schema to the data that you need
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_KEY): str,
@@ -30,10 +30,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 
 
 class PlaceholderHub:
-    """Placeholder class to make tests pass.
-
-    TODO Remove this placeholder class and replace with things from your PyPI package.
-    """
+    """Placeholder class to make tests pass."""
 
     def __init__(self, host: str) -> None:
         """Initialize."""
@@ -42,34 +39,22 @@ class PlaceholderHub:
     async def authenticate(self, username: str, password: str) -> bool:
         """Test if we can authenticate with the host."""
         async with Cocoro(app_secret=password, app_key=username) as cocoro:
-            res = await cocoro.login()
-            print(res)
+            await cocoro.login()
             return cocoro.is_authenticated
+
+
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
     """Validate the user input allows us to connect.
 
     Data has the keys from STEP_USER_DATA_SCHEMA with values provided by the user.
     """
-    # TODO validate the data can be used to set up a connection.
-
-    # If your PyPI package is not built with async, pass your methods
-    # to the executor:
-    # await hass.async_add_executor_job(
-    #     your_validate_func, data[CONF_USERNAME], data[CONF_PASSWORD]
-    # )
-
     hub = PlaceholderHub("host")
 
     if not await hub.authenticate(data[CONF_KEY], data[CONF_SECRET]):
         raise InvalidAuth
 
-    # If you cannot connect:
-    # throw CannotConnect
-    # If the authentication is wrong:
-    # InvalidAuth
-
     # Return info that you want to store in the config entry.
-    return {"title": "Name of the device"}
+    return {"title": "Sharp Cocoro Air"}
 
 
 class ConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -81,7 +66,6 @@ class ConfigFlow(ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Handle the initial step."""
-        print(user_input)
         errors: dict[str, str] = {}
         if user_input is not None:
             try:

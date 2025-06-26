@@ -1,61 +1,68 @@
-from typing import Any, Optional
 import asyncio
 import logging
 from functools import wraps
+from typing import Any
 
-from .const import DOMAIN
+from sharp_cocoro import Aircon
+from sharp_cocoro import Cocoro
+from sharp_cocoro.devices.aircon.aircon_properties import FanDirection
+from sharp_cocoro.devices.aircon.aircon_properties import StatusCode
+from sharp_cocoro.devices.aircon.aircon_properties import ValueSingle
+
 from . import SharpCocoroData
-from homeassistant.components.climate import (
-    ClimateEntity,
-    HVACMode,
-    ClimateEntityFeature,
-    HVACAction,
-    PRECISION_TENTHS,
-    # PRECISION_HALVES,
-    FAN_AUTO,
-    FAN_LOW,
-    FAN_MEDIUM,
-    FAN_HIGH,
-)
+from .const import DOMAIN
+
+from homeassistant.components.climate import FAN_AUTO
+from homeassistant.components.climate import FAN_HIGH
+from homeassistant.components.climate import FAN_LOW
+from homeassistant.components.climate import FAN_MEDIUM
+from homeassistant.components.climate import ClimateEntity
+from homeassistant.components.climate import ClimateEntityFeature
+from homeassistant.components.climate import HVACAction
+from homeassistant.components.climate import HVACMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from sharp_cocoro import Cocoro, Aircon
-from sharp_cocoro.properties import SingleProperty
-from sharp_cocoro.devices.aircon.aircon_properties import ValueSingle, StatusCode, FanDirection
 
 _LOGGER = logging.getLogger(__name__)
 
+
 def debounce(wait_time):
     """Decorator that will debounce a function for specified amount of time."""
+
     def decorator(fn):
         pending_task = None
-        
+
         @wraps(fn)
         async def debounced(*args, **kwargs):
             nonlocal pending_task
-            
+
             # Cancel any existing task
             if pending_task is not None and not pending_task.done():
                 pending_task.cancel()
-                
+
             # Create a new task with delay
             async def delayed_call():
                 await asyncio.sleep(wait_time)
                 await fn(*args, **kwargs)
-                
+
             pending_task = asyncio.create_task(delayed_call())
-            
+
         return debounced
+
     return decorator
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
+
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
     """Set up the Sharp Cocoro Air fan platform."""
     cocoro_device = entry.runtime_data
     assert isinstance(cocoro_device, SharpCocoroData)
     async_add_entities([SharpCocoroAircon(cocoro_device)])
+
 
 FANDIRECTION_SWING_MAPPING = {
     FanDirection.FAN_DIRECTION_AUTO: "Auto",
@@ -64,7 +71,7 @@ FANDIRECTION_SWING_MAPPING = {
     FanDirection.FAN_DIRECTION_3: "Middle",
     FanDirection.FAN_DIRECTION_4: "Low",
     FanDirection.FAN_DIRECTION_5: "Bottom",
-    FanDirection.FAN_DIRECTION_SWING: "Swing"
+    FanDirection.FAN_DIRECTION_SWING: "Swing",
 }
 
 WINDSPEED_FANMODE_MAPPING = {
@@ -92,7 +99,7 @@ HVAC_MODES = [
     HVACMode.HEAT,
     HVACMode.DRY,
     HVACMode.AUTO,
-    HVACMode.FAN_ONLY
+    HVACMode.FAN_ONLY,
 ]
 
 SUPPORTED_FEATURES = (
@@ -110,12 +117,14 @@ SUPPORTED_FEATURES_NO_TEMPERATURE = (
     | ClimateEntityFeature.SWING_MODE
 )
 
+
 class SharpCocoroAircon(ClimateEntity):
     _attr_fan_modes = [FAN_LOW, FAN_MEDIUM, FAN_HIGH, FAN_AUTO]
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_target_temperature_step = 0.5
     _attr_supported_features = SUPPORTED_FEATURES
     _attr_hvac_modes = HVAC_MODES
+
     @property
     def _device(self) -> Aircon:
         return self._cocoro_data.device
@@ -128,19 +137,19 @@ class SharpCocoroAircon(ClimateEntity):
         """Initialize the fan."""
         self._cocoro_data = cocoro_data
 
-        self.name = self._device.name
-        self.unique_id = str(self._device.device_id)
+        self._attr_name = self._device.name
+        self._attr_unique_id = str(self._device.device_id)
 
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, self._device.device_id)},
             name=self._device.name,
             manufacturer=self._device.maker,
             model=self._device.model,
-            serial_number=self._device.serial_number
+            serial_number=self._device.serial_number,
         )
 
         self._attr_swing_modes = list(FANDIRECTION_SWING_MAPPING.values())
-        
+
         # Create debounced refresh function
         self._debounced_refresh = debounce(5)(self._cocoro_data.async_refresh_data)
 
@@ -148,8 +157,7 @@ class SharpCocoroAircon(ClimateEntity):
         """Run when entity about to be added to hass."""
         await super().async_added_to_hass()
         self._remove_listener = self.hass.bus.async_listen(
-            "sharp_cocoro.device_updated",
-            self._handle_device_update
+            "sharp_cocoro.device_updated", self._handle_device_update
         )
 
     async def _handle_device_update(self, event):
@@ -158,7 +166,7 @@ class SharpCocoroAircon(ClimateEntity):
             self.async_write_ha_state()
 
     async def async_set_temperature(self, temperature: float, **kwargs: Any) -> None:
-        _LOGGER.info(f"Setting temperature to {temperature}")
+        _LOGGER.info("Setting temperature to %s", temperature)
         temperature = float(temperature)
         self._device.queue_temperature_update(temperature)
         self._device.queue_power_on()
@@ -168,12 +176,15 @@ class SharpCocoroAircon(ClimateEntity):
         await self.execute_and_refresh()
 
     async def async_set_swing_mode(self, swing_mode: str) -> None:
-        _LOGGER.info(f"Setting swing mode to {swing_mode}")
+        _LOGGER.info("Setting swing mode to %s", swing_mode)
         target_mode = next(
             (k for k, v in FANDIRECTION_SWING_MAPPING.items() if v == swing_mode), None
         )
-        self._device.queue_fan_direction_update(target_mode.value)
-        await self.execute_and_refresh()
+        if target_mode is not None:
+            self._device.queue_fan_direction_update(target_mode.value)
+            await self.execute_and_refresh()
+        else:
+            _LOGGER.error("Invalid swing mode: %s", swing_mode)
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         _LOGGER.info("Turning on the device")
@@ -218,7 +229,7 @@ class SharpCocoroAircon(ClimateEntity):
         return mode_mapping.get(operation_mode, HVACMode.AUTO)
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
-        _LOGGER.info(f"Setting HVAC mode to {hvac_mode}")
+        _LOGGER.info("Setting HVAC mode to %s", hvac_mode)
         self._device.queue_power_on()
         self._device.queue_temperature_update(self._device.get_temperature())
 
@@ -261,50 +272,71 @@ class SharpCocoroAircon(ClimateEntity):
     @property
     def target_temperature(self) -> float | None:
         """Return the temperature we try to reach."""
-        return self._device.get_state8().temperature
+        state = self._device.get_state8()
+        return state.temperature if state else None
 
     @property
     def fan_mode(self) -> str | None:
         windspeed = self._device.get_windspeed()
-        return WINDSPEED_FANMODE_MAPPING.get(windspeed.value, FAN_AUTO)
+        if windspeed and hasattr(windspeed, "value"):
+            return WINDSPEED_FANMODE_MAPPING.get(windspeed.value, FAN_AUTO)
+        return FAN_AUTO
 
     async def async_set_fan_mode(self, fan_mode: str) -> None:
-        _LOGGER.info(f"Setting fan mode to {fan_mode}")
+        _LOGGER.info("Setting fan mode to %s", fan_mode)
         self._device.queue_windspeed_update(FANMODE_WINDSPEED_MAPPING[fan_mode])
         await self.execute_and_refresh()
 
     @property
     def swing_mode(self) -> str | None:
         swing_status = self._device.get_fan_direction()
-        return FANDIRECTION_SWING_MAPPING[swing_status.value]
+        if swing_status and hasattr(swing_status, "value"):
+            return FANDIRECTION_SWING_MAPPING.get(swing_status.value, "Auto")
+        return "Auto"
 
     async def execute_and_refresh(self) -> None:
         """Execute queued updates and schedule a debounced refresh."""
-        _LOGGER.info(f"Executing updates for Sharp Cocoro Aircon: {self._device.property_updates}")
-        
+        _LOGGER.info(
+            "Executing updates for Sharp Cocoro Aircon: %s",
+            self._device.property_updates,
+        )
+
         try:
             await self._cocoro.execute_queued_updates(self._device)
             # Schedule debounced refresh
             await self._debounced_refresh()
-            
+
         except Exception as e:
             _LOGGER.error("Failed to execute updates: %s", e)
-            
+
             # Try to re-authenticate on authentication errors
-            if "401" in str(e) or "unauthorized" in str(e).lower() or "authentication" in str(e).lower():
-                _LOGGER.info("Authentication error during execute, attempting to re-login")
+            if (
+                "401" in str(e)
+                or "unauthorized" in str(e).lower()
+                or "authentication" in str(e).lower()
+            ):
+                _LOGGER.info(
+                    "Authentication error during execute, attempting to re-login"
+                )
                 try:
                     await self._cocoro_data.async_login()
                     # Retry the operation after re-authentication
                     await self._cocoro.execute_queued_updates(self._device)
                     await self._debounced_refresh()
-                    _LOGGER.info("Successfully executed updates after re-authentication")
-                    
+                    _LOGGER.info(
+                        "Successfully executed updates after re-authentication"
+                    )
+
                 except Exception as retry_error:
-                    _LOGGER.error("Failed to execute updates after re-authentication: %s", retry_error)
+                    _LOGGER.error(
+                        "Failed to execute updates after re-authentication: %s",
+                        retry_error,
+                    )
                     # Clear the queued updates to prevent them from piling up
                     self._device.property_updates.clear()
             else:
                 # For non-authentication errors, clear the queue to prevent issues
-                _LOGGER.error("Non-authentication error during execute, clearing update queue")
+                _LOGGER.error(
+                    "Non-authentication error during execute, clearing update queue"
+                )
                 self._device.property_updates.clear()
