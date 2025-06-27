@@ -133,7 +133,7 @@ class SharpCocoroAirFan(FanEntity):
         """Return true if the fan is on."""
         return self._device.get_power_status() == ValueSingle.POWER_ON
 
-    @cached_property
+    @property
     def percentage(self) -> int | None:
         """Return the current speed percentage."""
         windspeed = self._device.get_windspeed()
@@ -176,7 +176,7 @@ class SharpCocoroAirFan(FanEntity):
         """Return the preset modes supported."""
         return SUPPORTED_PRESET_MODES
 
-    @cached_property
+    @property
     def preset_mode(self) -> str | None:
         """Return the current selected preset mode."""
         windspeed = self._device.get_windspeed()
