@@ -1,19 +1,25 @@
 """Sensor platform for Sharp Cocoro Air."""
 
-from sharp_cocoro import Aircon
+from typing import TYPE_CHECKING
+
+from propcache.api import cached_property
+
 from sharp_cocoro import Cocoro
 
 from . import SharpCocoroData
 from .const import DOMAIN
 
-from homeassistant.components.climate import PRECISION_TENTHS
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import PRECISION_TENTHS
 from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+if TYPE_CHECKING:
+    from sharp_cocoro import Aircon
 
 
 async def async_setup_entry(
@@ -31,11 +37,11 @@ class SharpCocoroSensor(SensorEntity):
 
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
     _attr_device_class = SensorDeviceClass.TEMPERATURE
-    _attr_suggested_display_precision = PRECISION_TENTHS
+    _attr_suggested_display_precision = int(PRECISION_TENTHS)
 
     @property
-    def _device(self) -> Aircon:
-        return self._cocoro_data.device
+    def _device(self) -> "Aircon":
+        return self._cocoro_data.device  # type: ignore[return-value]
 
     @property
     def _cocoro(self) -> Cocoro:
@@ -50,7 +56,7 @@ class SharpCocoroSensor(SensorEntity):
         self.name = self._device.name + " Temperature"
         self.unique_id = str(self._device.device_id)
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, self._device.device_id)},
+            identifiers={(DOMAIN, str(self._device.device_id))},
             name=self._device.name,
             manufacturer=self._device.maker,
             model=self._device.model,
@@ -71,7 +77,7 @@ class SharpCocoroSensor(SensorEntity):
             # await self.async_update_ha_state()
             self.async_write_ha_state()
 
-    @property
+    @cached_property
     def native_value(self):
         """Return the state of the sensor."""
         return self._device.get_room_temperature()

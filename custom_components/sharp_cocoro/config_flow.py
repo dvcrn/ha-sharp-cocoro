@@ -15,6 +15,7 @@ from homeassistant.config_entries import ConfigFlow
 from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -36,9 +37,9 @@ class PlaceholderHub:
         """Initialize."""
         self.host = host
 
-    async def authenticate(self, username: str, password: str) -> bool:
+    async def authenticate(self, username: str, password: str, session) -> bool:
         """Test if we can authenticate with the host."""
-        async with Cocoro(app_secret=password, app_key=username) as cocoro:
+        async with Cocoro(app_secret=password, app_key=username, session=session) as cocoro:
             await cocoro.login()
             return cocoro.is_authenticated
 
@@ -49,8 +50,9 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     Data has the keys from STEP_USER_DATA_SCHEMA with values provided by the user.
     """
     hub = PlaceholderHub("host")
+    session = async_get_clientsession(hass)
 
-    if not await hub.authenticate(data[CONF_KEY], data[CONF_SECRET]):
+    if not await hub.authenticate(data[CONF_KEY], data[CONF_SECRET], session):
         raise InvalidAuthError
 
     # Return info that you want to store in the config entry.

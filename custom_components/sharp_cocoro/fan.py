@@ -6,6 +6,7 @@ import math
 from functools import wraps
 from typing import Any
 
+from propcache.api import cached_property
 from sharp_cocoro import Aircon
 from sharp_cocoro import Cocoro
 from sharp_cocoro.devices.aircon.aircon_properties import StatusCode
@@ -77,7 +78,7 @@ class SharpCocoroAirFan(FanEntity):
 
     @property
     def _device(self) -> Aircon:
-        return self._cocoro_data.device
+        return self._cocoro_data.device  # type: ignore[return-value]
 
     @property
     def _cocoro(self) -> Cocoro:
@@ -130,7 +131,7 @@ class SharpCocoroAirFan(FanEntity):
         """Return true if the fan is on."""
         return self._device.get_power_status() == ValueSingle.POWER_ON
 
-    @property
+    @cached_property
     def percentage(self) -> int | None:
         """Return the current speed percentage."""
         windspeed = self._device.get_windspeed()
@@ -162,16 +163,18 @@ class SharpCocoroAirFan(FanEntity):
             (v for v, k in self._speed_mapping.items() if k == target_speed), None
         )
 
-        self._device.queue_windspeed_update(target_speed_setting)
+        if target_speed_setting:
+            self._device.queue_windspeed_update(target_speed_setting)
+
         self._device.queue_power_on()
         await self.execute_and_refresh()
 
-    @property
+    @cached_property
     def preset_modes(self) -> list[str]:
         """Return the preset modes supported."""
         return SUPPORTED_PRESET_MODES
 
-    @property
+    @cached_property
     def preset_mode(self) -> str | None:
         """Return the current selected preset mode."""
         windspeed = self._device.get_windspeed()
@@ -192,13 +195,14 @@ class SharpCocoroAirFan(FanEntity):
         self._device.queue_windspeed_update(windspeed)
         await self.execute_and_refresh()
 
-    async def async_turn_on(self, **kwargs: Any) -> None:
+    async def async_turn_on( self, percentage: int | None = None, preset_mode: str | None = None, **kwargs: Any) -> None:
         """Turn the entity on."""
         _LOGGER.info("Turning on Sharp Cocoro Air Fan")
         self._device.queue_power_on()
         opmode = self._device.get_property_status(StatusCode.OPERATION_MODE)
         if opmode:
             self._device.queue_property_status_update(opmode)
+
         await self.execute_and_refresh()
 
     async def execute_and_refresh(self) -> None:

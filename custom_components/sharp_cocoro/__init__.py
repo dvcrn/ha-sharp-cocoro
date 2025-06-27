@@ -7,9 +7,27 @@ from dataclasses import dataclass
 from dataclasses import field
 from datetime import datetime
 from datetime import timedelta
+import traceback
 
-from sharp_cocoro import Cocoro
-from sharp_cocoro import Device
+_LOGGER = logging.getLogger(__name__)
+
+try:
+    _LOGGER.info("Importing Cocoro from sharp_cocoro")
+    from sharp_cocoro import Cocoro
+    _LOGGER.info("Successfully imported Cocoro")
+except Exception as e:
+    _LOGGER.error("Failed to import Cocoro: %s", e)
+    _LOGGER.error("Traceback: %s", traceback.format_exc())
+    raise
+
+try:
+    _LOGGER.info("Importing Device from sharp_cocoro")
+    from sharp_cocoro import Device
+    _LOGGER.info("Successfully imported Device")
+except Exception as e:
+    _LOGGER.error("Failed to import Device: %s", e)
+    _LOGGER.error("Traceback: %s", traceback.format_exc())
+    raise
 
 from .config_flow import CONF_KEY
 from .config_flow import CONF_SECRET
@@ -17,13 +35,12 @@ from .config_flow import CONF_SECRET
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_track_time_interval
 
 PLATFORMS: list[Platform] = [Platform.FAN, Platform.CLIMATE, Platform.SENSOR]
 
 CocoroConfigEntry = ConfigEntry[Cocoro]
-
-_LOGGER = logging.getLogger(__name__)
 
 # Token refresh interval (30 minutes)
 TOKEN_REFRESH_INTERVAL = timedelta(minutes=30)
@@ -118,13 +135,29 @@ async def async_setup_entry(hass: HomeAssistant, entry: CocoroConfigEntry) -> bo
     app_key = entry.data[CONF_KEY]
     _LOGGER.info("Initializing Sharp Cocoro Air with app key: %s", app_key)
 
-    # Create Cocoro client without context manager to maintain connection
-    cocoro = Cocoro(app_secret=app_secret, app_key=app_key)
+    # Get Home Assistant's managed aiohttp session
+    session = async_get_clientsession(hass)
+    _LOGGER.info("Got aiohttp session from Home Assistant")
 
     try:
+        _LOGGER.info("Creating Cocoro client with session")
+        # Create Cocoro client with HA's session to avoid SSL blocking
+        cocoro = Cocoro(app_secret=app_secret, app_key=app_key, session=session)
+        _LOGGER.info("Successfully created Cocoro client")
+    except Exception as e:
+        _LOGGER.error("Failed to create Cocoro client: %s", e)
+        _LOGGER.error("Traceback: %s", traceback.format_exc())
+        raise
+
+    try:
+        _LOGGER.info("Attempting login")
         # Initial login
         await cocoro.login()
+        _LOGGER.info("Login successful")
+        
+        _LOGGER.info("Querying devices")
         devices = await cocoro.query_devices()
+        _LOGGER.info("Query devices successful, found %d devices", len(devices) if devices else 0)
 
         if not devices:
             _LOGGER.error("No devices found")
@@ -161,8 +194,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: CocoroConfigEntry) -> bo
 
     except Exception as e:
         _LOGGER.error("Failed to set up Sharp Cocoro Air: %s", e)
+        _LOGGER.error("Error type: %s", type(e))
+        _LOGGER.error("Full traceback: %s", traceback.format_exc())
         # Clean up on failure
-        if hasattr(cocoro, "close"):
+        if 'cocoro' in locals() and hasattr(cocoro, "close"):
             await cocoro.close()
         return False
 
