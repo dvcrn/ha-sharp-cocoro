@@ -1,7 +1,10 @@
+"""Climate platform for Sharp Cocoro Air."""
+
 import asyncio
 import logging
 from functools import wraps
 from typing import Any
+from typing import ClassVar
 
 from sharp_cocoro import Aircon
 from sharp_cocoro import Cocoro
@@ -12,14 +15,14 @@ from sharp_cocoro.devices.aircon.aircon_properties import ValueSingle
 from . import SharpCocoroData
 from .const import DOMAIN
 
-from homeassistant.components.climate import FAN_AUTO
-from homeassistant.components.climate import FAN_HIGH
-from homeassistant.components.climate import FAN_LOW
-from homeassistant.components.climate import FAN_MEDIUM
 from homeassistant.components.climate import ClimateEntity
-from homeassistant.components.climate import ClimateEntityFeature
-from homeassistant.components.climate import HVACAction
-from homeassistant.components.climate import HVACMode
+from homeassistant.components.climate.const import FAN_AUTO
+from homeassistant.components.climate.const import FAN_HIGH
+from homeassistant.components.climate.const import FAN_LOW
+from homeassistant.components.climate.const import FAN_MEDIUM
+from homeassistant.components.climate.const import ClimateEntityFeature
+from homeassistant.components.climate.const import HVACAction
+from homeassistant.components.climate.const import HVACMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
@@ -30,7 +33,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def debounce(wait_time):
-    """Decorator that will debounce a function for specified amount of time."""
+    """Debounce a function for a specified amount of time."""
 
     def decorator(fn):
         pending_task = None
@@ -119,7 +122,9 @@ SUPPORTED_FEATURES_NO_TEMPERATURE = (
 
 
 class SharpCocoroAircon(ClimateEntity):
-    _attr_fan_modes = [FAN_LOW, FAN_MEDIUM, FAN_HIGH, FAN_AUTO]
+    """Representation of a Sharp Cocoro Air air conditioner."""
+
+    _attr_fan_modes: ClassVar[list[str]] = [FAN_LOW, FAN_MEDIUM, FAN_HIGH, FAN_AUTO]
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_target_temperature_step = 0.5
     _attr_supported_features = SUPPORTED_FEATURES
@@ -166,6 +171,7 @@ class SharpCocoroAircon(ClimateEntity):
             self.async_write_ha_state()
 
     async def async_set_temperature(self, temperature: float, **kwargs: Any) -> None:
+        """Set new target temperature."""
         _LOGGER.info("Setting temperature to %s", temperature)
         temperature = float(temperature)
         self._device.queue_temperature_update(temperature)
@@ -176,6 +182,7 @@ class SharpCocoroAircon(ClimateEntity):
         await self.execute_and_refresh()
 
     async def async_set_swing_mode(self, swing_mode: str) -> None:
+        """Set new target swing mode."""
         _LOGGER.info("Setting swing mode to %s", swing_mode)
         target_mode = next(
             (k for k, v in FANDIRECTION_SWING_MAPPING.items() if v == swing_mode), None
@@ -187,6 +194,7 @@ class SharpCocoroAircon(ClimateEntity):
             _LOGGER.error("Invalid swing mode: %s", swing_mode)
 
     async def async_turn_on(self, **kwargs: Any) -> None:
+        """Turn the entity on."""
         _LOGGER.info("Turning on the device")
         temp = self._device.get_temperature()
         self._device.queue_power_on()
@@ -197,6 +205,7 @@ class SharpCocoroAircon(ClimateEntity):
         await self.execute_and_refresh()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
+        """Turn the entity off."""
         _LOGGER.info("Turning off the device")
         self._device.queue_power_off()
         await self.execute_and_refresh()
@@ -215,6 +224,7 @@ class SharpCocoroAircon(ClimateEntity):
 
     @property
     def hvac_mode(self) -> HVACMode | None:
+        """Return hvac operation ie. heat, cool mode."""
         if self._device.get_power_status() == ValueSingle.POWER_OFF:
             return HVACMode.OFF
 
@@ -229,6 +239,7 @@ class SharpCocoroAircon(ClimateEntity):
         return mode_mapping.get(operation_mode, HVACMode.AUTO)
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
+        """Set new target hvac mode."""
         _LOGGER.info("Setting HVAC mode to %s", hvac_mode)
         self._device.queue_power_on()
         self._device.queue_temperature_update(self._device.get_temperature())
@@ -250,6 +261,7 @@ class SharpCocoroAircon(ClimateEntity):
 
     @property
     def hvac_action(self) -> HVACAction | None:
+        """Return the current running hvac operation if supported."""
         if self._device.get_power_status() == ValueSingle.POWER_OFF:
             return HVACAction.OFF
 
@@ -277,18 +289,21 @@ class SharpCocoroAircon(ClimateEntity):
 
     @property
     def fan_mode(self) -> str | None:
+        """Return the fan setting."""
         windspeed = self._device.get_windspeed()
         if windspeed and hasattr(windspeed, "value"):
             return WINDSPEED_FANMODE_MAPPING.get(windspeed.value, FAN_AUTO)
         return FAN_AUTO
 
     async def async_set_fan_mode(self, fan_mode: str) -> None:
+        """Set new target fan mode."""
         _LOGGER.info("Setting fan mode to %s", fan_mode)
         self._device.queue_windspeed_update(FANMODE_WINDSPEED_MAPPING[fan_mode])
         await self.execute_and_refresh()
 
     @property
     def swing_mode(self) -> str | None:
+        """Return the fan setting."""
         swing_status = self._device.get_fan_direction()
         if swing_status and hasattr(swing_status, "value"):
             return FANDIRECTION_SWING_MAPPING.get(swing_status.value, "Auto")

@@ -1,49 +1,52 @@
-# Default recipe
-default:
-    @just --list
+# Install dependencies
+install:
+    uv sync
 
-# Run all linters
-lint:
-    ruff check custom_components/
-    pylint custom_components/
-    mypy custom_components/
-
-# Run linters with auto-fix
-fix:
-    ruff check --fix custom_components/
-    black custom_components/
+# Run tests
+test:
+    uv run pytest
 
 # Format code
 format:
-    black custom_components/
-    ruff check --select I --fix custom_components/  # Sort imports
+    uv run ruff format custom_components/
+
+# Lint code
+lint:
+    uv run ruff check custom_components/
+    uv run mypy custom_components/
+
+# Fix linting issues
+fix:
+    uv run ruff check --fix custom_components/
 
 # Type check
-check:
-    mypy custom_components/
+typecheck:
+    uv run mypy custom_components/
 
-# Run ruff only (fast feedback)
-ruff:
-    ruff check custom_components/
+# Build package
+build:
+    uv build
 
-# Run pylint only (comprehensive)
-pylint:
-    pylint custom_components/
+# Clean build artifacts
+clean:
+    rm -rf dist/
+    rm -rf .pytest_cache/
+    rm -rf __pycache__/
+    rm -rf .mypy_cache/
+    rm -rf .ruff_cache/
+    find . -name "*.pyc" -delete
+    find . -type d -name "__pycache__" -exec rm -rf {} +
 
-# Check but don't fix
-check-all: lint check
+# Run all checks
+check: lint typecheck
 
 # Fix and format everything
 fix-all: fix format
 
 # Run pre-commit on all files
 pre-commit:
-    pre-commit run --all-files
+    uv run pre-commit run --all-files
 
-# Clean up cache files
-clean:
-    find . -type d -name "__pycache__" -exec rm -rf {} +
-    find . -type f -name "*.pyc" -delete
-    find . -type d -name ".mypy_cache" -exec rm -rf {} +
-    find . -type d -name ".pytest_cache" -exec rm -rf {} +
-    find . -type d -name ".ruff_cache" -exec rm -rf {} +
+# Show project info
+info:
+    uv tree

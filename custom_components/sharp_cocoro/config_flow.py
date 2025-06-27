@@ -51,7 +51,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     hub = PlaceholderHub("host")
 
     if not await hub.authenticate(data[CONF_KEY], data[CONF_SECRET]):
-        raise InvalidAuth
+        raise InvalidAuthError
 
     # Return info that you want to store in the config entry.
     return {"title": "Sharp Cocoro Air"}
@@ -70,9 +70,9 @@ class ConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 info = await validate_input(self.hass, user_input)
-            except CannotConnect:
+            except CannotConnectError:
                 errors["base"] = "cannot_connect"
-            except InvalidAuth:
+            except InvalidAuthError:
                 errors["base"] = "invalid_auth"
             except Exception:
                 _LOGGER.exception("Unexpected exception")
@@ -85,9 +85,9 @@ class ConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
 
-class CannotConnect(HomeAssistantError):
+class CannotConnectError(HomeAssistantError):
     """Error to indicate we cannot connect."""
 
 
-class InvalidAuth(HomeAssistantError):
+class InvalidAuthError(HomeAssistantError):
     """Error to indicate there is invalid auth."""

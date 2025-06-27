@@ -6,8 +6,9 @@ authors = [{name = "David Mohl", email = "git@d.sh"}]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "sharp-cocoro @ git+http://github.com/dvcrn/sharp-cocoro.git",
+    "sharp-cocoro>=0.2.1",
 ]
+
 
 [build-system]
 requires = ["hatchling"]
@@ -25,7 +26,6 @@ dev = [
     "homeassistant>=2024.3.3",
     "mypy>=1.16.1",
     "pre-commit>=4.2.0",
-    "pylint>=3.3.7",
     "ruff>=0.12.0",
 ]
 
@@ -64,39 +64,18 @@ ignore = [
 force-single-line = true
 known-first-party = ["custom_components.sharp_cocoro"]
 forced-separate = ["homeassistant"]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
 
-[tool.pylint.MAIN]
-py-version = "3.11"
-ignore = ["tests"]
-jobs = 2
-load-plugins = []
-persistent = false
-
-[tool.pylint.MESSAGES_CONTROL]
-disable = [
-    "format",  # Let black and ruff handle formatting
-    "line-too-long",
-    "missing-module-docstring",
-    "missing-class-docstring",
-    "missing-function-docstring",
-    "import-outside-toplevel",
-    "too-many-arguments",
-    "too-few-public-methods",
-    "too-many-instance-attributes",
-    "fixme",
-    "protected-access",
-    "duplicate-code",
-]
-
-[tool.pylint.SIMILARITIES]
-min-similarity-lines = 7
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
 
 [tool.black]
 line-length = 88
 target-version = ["py311"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.13"
 check_untyped_defs = true
 disallow_incomplete_defs = true
 disallow_untyped_calls = true

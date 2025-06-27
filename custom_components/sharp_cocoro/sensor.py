@@ -1,3 +1,4 @@
+"""Sensor platform for Sharp Cocoro Air."""
 
 from sharp_cocoro import Aircon
 from sharp_cocoro import Cocoro
@@ -72,4 +73,5 @@ class SharpCocoroSensor(SensorEntity):
 
     @property
     def native_value(self):
+        """Return the state of the sensor."""
         return self._device.get_room_temperature()

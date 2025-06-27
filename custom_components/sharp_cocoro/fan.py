@@ -1,3 +1,5 @@
+"""Fan platform for Sharp Cocoro Air."""
+
 import asyncio
 import logging
 import math
@@ -24,7 +26,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def debounce(wait_time):
-    """Decorator that will debounce a function for specified amount of time."""
+    """Debounce a function for a specified amount of time."""
 
     def decorator(fn):
         pending_task = None
@@ -60,6 +62,7 @@ SPEED_RANGE = (1, 8)
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
+    """Set up the Sharp Cocoro Air fan platform."""
     cocoro_device = entry.runtime_data
     assert isinstance(cocoro_device, SharpCocoroData)
 
@@ -129,6 +132,7 @@ class SharpCocoroAirFan(FanEntity):
 
     @property
     def percentage(self) -> int | None:
+        """Return the current speed percentage."""
         windspeed = self._device.get_windspeed()
 
         if windspeed == ValueSingle.WINDSPEED_LEVEL_AUTO:
@@ -141,11 +145,13 @@ class SharpCocoroAirFan(FanEntity):
         return int((speed_level / 8) * 100)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
+        """Turn the entity off."""
         _LOGGER.info("Turning off Sharp Cocoro Air Fan")
         self._device.queue_power_off()
         await self.execute_and_refresh()
 
     async def async_set_percentage(self, percentage: int) -> None:
+        """Set the speed of the fan."""
         _LOGGER.info("Setting Sharp Cocoro Air Fan speed to %s%%", percentage)
         if percentage == 0:
             await self.async_turn_off()
@@ -176,6 +182,7 @@ class SharpCocoroAirFan(FanEntity):
         )
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
+        """Set the preset mode of the fan."""
         _LOGGER.info("Setting Sharp Cocoro Air Fan preset mode to %s", preset_mode)
         windspeed = (
             ValueSingle.WINDSPEED_LEVEL_AUTO
@@ -186,6 +193,7 @@ class SharpCocoroAirFan(FanEntity):
         await self.execute_and_refresh()
 
     async def async_turn_on(self, **kwargs: Any) -> None:
+        """Turn the entity on."""
         _LOGGER.info("Turning on Sharp Cocoro Air Fan")
         self._device.queue_power_on()
         opmode = self._device.get_property_status(StatusCode.OPERATION_MODE)
