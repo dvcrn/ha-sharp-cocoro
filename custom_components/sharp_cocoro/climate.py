@@ -325,7 +325,7 @@ class SharpCocoroAircon(ClimateEntity):
         """Execute queued updates and schedule a debounced refresh."""
         # Log state before execution
         _LOGGER.debug("State before execute: temp=%s°C", self.target_temperature)
-        
+
         await shared_execute_and_refresh(
             device=self._device,
             cocoro=self._cocoro,
@@ -334,6 +334,6 @@ class SharpCocoroAircon(ClimateEntity):
             async_write_ha_state=self.async_write_ha_state,
             entity_name="Sharp Cocoro Aircon"
         )
-        
+
         # Log state after execution
         _LOGGER.debug("State after execute: temp=%s°C", self.target_temperature)
