@@ -6,7 +6,7 @@ authors = [{name = "David Mohl", email = "git@d.sh"}]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "sharp-cocoro @ git+https://github.com/dvcrn/sharp-cocoro.git@main",
+    "sharp-cocoro>=0.2.1",
 ]
 
 

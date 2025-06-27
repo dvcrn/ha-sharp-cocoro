@@ -1801,7 +1801,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "sharp-cocoro", git = "https://github.com/dvcrn/sharp-cocoro.git?rev=main" }]
+requires-dist = [{ name = "sharp-cocoro", specifier = ">=0.2.1" }]
 
 [package.metadata.requires-dev]
 dev = [
@@ -3962,12 +3962,16 @@ wheels = [
 
 [[package]]
 name = "sharp-cocoro"
-version = "0.2.2"
-source = { git = "https://github.com/dvcrn/sharp-cocoro.git?rev=main#62ce0393c9307ac9877fd2120f04e5665c544eeb" }
+version = "0.2.1"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx", version = "0.27.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "httpx", version = "0.27.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.12.*'" },
     { name = "httpx", version = "0.28.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f5/91/35748a1de2016c0ee08092424077d26d526c7c996a5edd7ed2054c47a77a/sharp_cocoro-0.2.1.tar.gz", hash = "sha256:42c5a571e7ecfed2088c512fd20483a0c0428a34791115fdc4e100c0dcf937e1", size = 4603260, upload-time = "2025-06-27T05:32:24.847Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f8/41/59bae5cb90b407ee4c2d3a331d000f3d7681147a60bb28634cde463c2735/sharp_cocoro-0.2.1-py3-none-any.whl", hash = "sha256:b70f049b70c63c6396e4939362627a5d0dc5ea95d55694e23479f449e480cef6", size = 13360, upload-time = "2025-06-27T05:32:22.15Z" },
 ]
 
 [[package]]
