@@ -10,6 +10,7 @@ from datetime import timedelta
 import traceback
 
 _LOGGER = logging.getLogger(__name__)
+_LOGGER.setLevel(logging.DEBUG)
 
 try:
     _LOGGER.info("Importing Cocoro from sharp_cocoro")
@@ -88,6 +89,7 @@ class SharpCocoroData:
             for device in devices:
                 if device.device_id == self.device.device_id:
                     self.device = device
+                    _LOGGER.debug("Device refreshed from API")
                     break
 
             self.hass.bus.async_fire(

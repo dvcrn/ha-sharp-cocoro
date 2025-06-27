@@ -30,6 +30,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 _LOGGER = logging.getLogger(__name__)
+_LOGGER.setLevel(logging.DEBUG)
 
 
 def debounce(wait_time):
@@ -155,8 +156,8 @@ class SharpCocoroAircon(ClimateEntity):
 
         self._attr_swing_modes = list(FANDIRECTION_SWING_MAPPING.values())
 
-        # Create debounced refresh function
-        self._debounced_refresh = debounce(5)(self._cocoro_data.async_refresh_data)
+        # Create debounced refresh function (reduced from 5 to 2 seconds for faster feedback)
+        self._debounced_refresh = debounce(2)(self._cocoro_data.async_refresh_data)
 
     async def async_added_to_hass(self):
         """Run when entity about to be added to hass."""
@@ -184,11 +185,21 @@ class SharpCocoroAircon(ClimateEntity):
     async def async_set_swing_mode(self, swing_mode: str) -> None:
         """Set new target swing mode."""
         _LOGGER.info("Setting swing mode to %s", swing_mode)
+        
+        # Log current state before update
+        current_temp = self.target_temperature
+        _LOGGER.debug("Current temperature before swing update: %s°C", current_temp)
+        
         target_mode = next(
             (k for k, v in FANDIRECTION_SWING_MAPPING.items() if v == swing_mode), None
         )
         if target_mode is not None:
             self._device.queue_fan_direction_update(target_mode.value)
+            
+            # Log state after queueing update
+            temp_after_queue = self.target_temperature
+            _LOGGER.debug("Temperature after queueing swing update: %s°C", temp_after_queue)
+            
             await self.execute_and_refresh()
         else:
             _LOGGER.error("Invalid swing mode: %s", swing_mode)
@@ -317,8 +328,20 @@ class SharpCocoroAircon(ClimateEntity):
         )
 
         try:
+            # Log state before execution
+            _LOGGER.debug("State before execute: temp=%s°C", self.target_temperature)
+            
             await self._cocoro.execute_queued_updates(self._device)
-            # Schedule debounced refresh
+            
+            # Log state after execution (optimistic update)
+            _LOGGER.debug("State after execute (optimistic): temp=%s°C", self.target_temperature)
+            
+            # Immediately update Home Assistant state with optimistic values
+            # The SDK has already applied the updates to device.status
+            self.async_write_ha_state()
+            _LOGGER.debug("Home Assistant state updated with optimistic values")
+            
+            # Schedule debounced refresh to get the actual state from API
             await self._debounced_refresh()
 
         except Exception as e:
