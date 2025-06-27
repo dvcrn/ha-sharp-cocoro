@@ -14,6 +14,7 @@ from sharp_cocoro.devices.aircon.aircon_properties import ValueSingle
 
 from . import SharpCocoroData
 from .const import DOMAIN
+from .coordinator import execute_and_refresh as shared_execute_and_refresh
 
 from homeassistant.components.climate import ClimateEntity
 from homeassistant.components.climate.const import FAN_AUTO
@@ -185,21 +186,21 @@ class SharpCocoroAircon(ClimateEntity):
     async def async_set_swing_mode(self, swing_mode: str) -> None:
         """Set new target swing mode."""
         _LOGGER.info("Setting swing mode to %s", swing_mode)
-        
+
         # Log current state before update
         current_temp = self.target_temperature
         _LOGGER.debug("Current temperature before swing update: %s°C", current_temp)
-        
+
         target_mode = next(
             (k for k, v in FANDIRECTION_SWING_MAPPING.items() if v == swing_mode), None
         )
         if target_mode is not None:
             self._device.queue_fan_direction_update(target_mode.value)
-            
+
             # Log state after queueing update
             temp_after_queue = self.target_temperature
             _LOGGER.debug("Temperature after queueing swing update: %s°C", temp_after_queue)
-            
+
             await self.execute_and_refresh()
         else:
             _LOGGER.error("Invalid swing mode: %s", swing_mode)
@@ -322,59 +323,17 @@ class SharpCocoroAircon(ClimateEntity):
 
     async def execute_and_refresh(self) -> None:
         """Execute queued updates and schedule a debounced refresh."""
-        _LOGGER.info(
-            "Executing updates for Sharp Cocoro Aircon: %s",
-            self._device.property_updates,
+        # Log state before execution
+        _LOGGER.debug("State before execute: temp=%s°C", self.target_temperature)
+        
+        await shared_execute_and_refresh(
+            device=self._device,
+            cocoro=self._cocoro,
+            cocoro_data=self._cocoro_data,
+            debounced_refresh=self._debounced_refresh,
+            async_write_ha_state=self.async_write_ha_state,
+            entity_name="Sharp Cocoro Aircon"
         )
-
-        try:
-            # Log state before execution
-            _LOGGER.debug("State before execute: temp=%s°C", self.target_temperature)
-            
-            await self._cocoro.execute_queued_updates(self._device)
-            
-            # Log state after execution (optimistic update)
-            _LOGGER.debug("State after execute (optimistic): temp=%s°C", self.target_temperature)
-            
-            # Immediately update Home Assistant state with optimistic values
-            # The SDK has already applied the updates to device.status
-            self.async_write_ha_state()
-            _LOGGER.debug("Home Assistant state updated with optimistic values")
-            
-            # Schedule debounced refresh to get the actual state from API
-            await self._debounced_refresh()
-
-        except Exception as e:
-            _LOGGER.error("Failed to execute updates: %s", e)
-
-            # Try to re-authenticate on authentication errors
-            if (
-                "401" in str(e)
-                or "unauthorized" in str(e).lower()
-                or "authentication" in str(e).lower()
-            ):
-                _LOGGER.info(
-                    "Authentication error during execute, attempting to re-login"
-                )
-                try:
-                    await self._cocoro_data.async_login()
-                    # Retry the operation after re-authentication
-                    await self._cocoro.execute_queued_updates(self._device)
-                    await self._debounced_refresh()
-                    _LOGGER.info(
-                        "Successfully executed updates after re-authentication"
-                    )
-
-                except Exception as retry_error:
-                    _LOGGER.error(
-                        "Failed to execute updates after re-authentication: %s",
-                        retry_error,
-                    )
-                    # Clear the queued updates to prevent them from piling up
-                    self._device.property_updates.clear()
-            else:
-                # For non-authentication errors, clear the queue to prevent issues
-                _LOGGER.error(
-                    "Non-authentication error during execute, clearing update queue"
-                )
-                self._device.property_updates.clear()
+        
+        # Log state after execution
+        _LOGGER.debug("State after execute: temp=%s°C", self.target_temperature)

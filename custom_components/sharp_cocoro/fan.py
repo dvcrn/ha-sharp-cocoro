@@ -14,6 +14,7 @@ from sharp_cocoro.devices.aircon.aircon_properties import ValueSingle
 
 from . import SharpCocoroData
 from .const import DOMAIN
+from .coordinator import execute_and_refresh as shared_execute_and_refresh
 
 from homeassistant.components.fan import FanEntity
 from homeassistant.components.fan import FanEntityFeature
@@ -24,6 +25,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util.percentage import percentage_to_ranged_value
 
 _LOGGER = logging.getLogger(__name__)
+_LOGGER.setLevel(logging.DEBUG)
 
 
 def debounce(wait_time):
@@ -110,8 +112,8 @@ class SharpCocoroAirFan(FanEntity):
             ValueSingle.WINDSPEED_LEVEL_8: 8,
         }
 
-        # Create debounced refresh function
-        self._debounced_refresh = debounce(5)(self._cocoro_data.async_refresh_data)
+        # Create debounced refresh function (reduced from 5 to 2 seconds for faster feedback)
+        self._debounced_refresh = debounce(2)(self._cocoro_data.async_refresh_data)
 
     async def async_added_to_hass(self):
         """Run when entity about to be added to hass."""
@@ -207,47 +209,11 @@ class SharpCocoroAirFan(FanEntity):
 
     async def execute_and_refresh(self) -> None:
         """Execute queued updates and schedule a debounced refresh."""
-        _LOGGER.info(
-            "Executing updates for Sharp Cocoro Air Fan: %s",
-            self._device.property_updates,
+        await shared_execute_and_refresh(
+            device=self._device,
+            cocoro=self._cocoro,
+            cocoro_data=self._cocoro_data,
+            debounced_refresh=self._debounced_refresh,
+            async_write_ha_state=self.async_write_ha_state,
+            entity_name="Sharp Cocoro Air Fan"
         )
-
-        try:
-            await self._cocoro.execute_queued_updates(self._device)
-            # Schedule debounced refresh
-            await self._debounced_refresh()
-
-        except Exception as e:
-            _LOGGER.error("Failed to execute updates: %s", e)
-
-            # Try to re-authenticate on authentication errors
-            if (
-                "401" in str(e)
-                or "unauthorized" in str(e).lower()
-                or "authentication" in str(e).lower()
-            ):
-                _LOGGER.info(
-                    "Authentication error during execute, attempting to re-login"
-                )
-                try:
-                    await self._cocoro_data.async_login()
-                    # Retry the operation after re-authentication
-                    await self._cocoro.execute_queued_updates(self._device)
-                    await self._debounced_refresh()
-                    _LOGGER.info(
-                        "Successfully executed updates after re-authentication"
-                    )
-
-                except Exception as retry_error:
-                    _LOGGER.error(
-                        "Failed to execute updates after re-authentication: %s",
-                        retry_error,
-                    )
-                    # Clear the queued updates to prevent them from piling up
-                    self._device.property_updates.clear()
-            else:
-                # For non-authentication errors, clear the queue to prevent issues
-                _LOGGER.error(
-                    "Non-authentication error during execute, clearing update queue"
-                )
-                self._device.property_updates.clear()
