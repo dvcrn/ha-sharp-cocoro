@@ -21,11 +21,13 @@ _LOGGER = logging.getLogger(__name__)
 
 CONF_KEY = "app_key"
 CONF_SECRET = "app_secret"
+CONF_SERVICE_NAME = "service_name"
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_KEY): str,
         vol.Required(CONF_SECRET): str,
+        vol.Required(CONF_SERVICE_NAME, default='iClub'): str,
     }
 )
 
@@ -37,9 +39,9 @@ class PlaceholderHub:
         """Initialize."""
         self.host = host
 
-    async def authenticate(self, username: str, password: str, session) -> bool:
+    async def authenticate(self, username: str, password: str, service_name:str, session) -> bool:
         """Test if we can authenticate with the host."""
-        async with Cocoro(app_secret=password, app_key=username, session=session) as cocoro:
+        async with Cocoro(app_secret=password, app_key=username, service_name=service_name, session=session) as cocoro:
             await cocoro.login()
             return cocoro.is_authenticated
 
@@ -52,7 +54,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     hub = PlaceholderHub("host")
     session = async_get_clientsession(hass)
 
-    if not await hub.authenticate(data[CONF_KEY], data[CONF_SECRET], session):
+    if not await hub.authenticate(data[CONF_KEY], data[CONF_SECRET], data[CONF_SERVICE_NAME], session):
         raise InvalidAuthError
 
     # Return info that you want to store in the config entry.

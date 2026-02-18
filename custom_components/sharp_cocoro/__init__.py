@@ -32,6 +32,8 @@ except Exception as e:
 
 from .config_flow import CONF_KEY
 from .config_flow import CONF_SECRET
+from .config_flow import CONF_SERVICE_NAME
+
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
@@ -52,7 +54,7 @@ class SharpCocoroData:
     """State container for Sharp Cocoro integration."""
 
     cocoro: Cocoro
-    device: Device
+    devices: list[Device]
     hass: HomeAssistant
     app_key: str = field(default="")
     app_secret: str = field(default="")
@@ -85,17 +87,7 @@ class SharpCocoroData:
         _LOGGER.info("Refreshing device data")
 
         try:
-            devices = await self.cocoro.query_devices()
-            for device in devices:
-                if device.device_id == self.device.device_id:
-                    self.device = device
-                    _LOGGER.debug("Device refreshed from API")
-                    break
-
-            self.hass.bus.async_fire(
-                "sharp_cocoro.device_updated", {"device_id": self.device.device_id}
-            )
-
+            await self._do_refresh()
         except Exception as e:
             _LOGGER.error("Failed to refresh device data: %s", e)
 
@@ -108,19 +100,8 @@ class SharpCocoroData:
                 _LOGGER.info("Authentication error detected, attempting to re-login")
                 try:
                     await self.async_login()
-                    # Retry the refresh after re-authentication
-                    devices = await self.cocoro.query_devices()
-                    for device in devices:
-                        if device.device_id == self.device.device_id:
-                            self.device = device
-                            break
-
-                    self.hass.bus.async_fire(
-                        "sharp_cocoro.device_updated",
-                        {"device_id": self.device.device_id},
-                    )
+                    await self._do_refresh()
                     _LOGGER.info("Successfully refreshed data after re-authentication")
-
                 except Exception as retry_error:
                     _LOGGER.error(
                         "Failed to refresh data after re-authentication: %s",
@@ -130,11 +111,70 @@ class SharpCocoroData:
                 # For non-authentication errors, just log them
                 _LOGGER.error("Non-authentication error during refresh: %s", e)
 
+    async def _do_refresh(self):
+        """Perform the actual device refresh."""
+        import asyncio
+
+        # First, request each device to report fresh values
+        # Using execute_queued_updates with empty property_updates sends status: []
+        # which triggers the device to report its current state
+        all_control_ids: list[tuple[Device, list[str]]] = []
+        for device in self.devices:
+            try:
+                # Ensure no pending updates (we just want a refresh)
+                device.property_updates.clear()
+                result = await self.cocoro.execute_queued_updates(device)
+
+                # Extract control IDs from response
+                control_ids = []
+                if 'controlList' in result:
+                    for control in result['controlList']:
+                        if 'id' in control:
+                            control_ids.append(control['id'])
+
+                if control_ids:
+                    all_control_ids.append((device, control_ids))
+                    _LOGGER.debug("Refresh request sent for device %s, control IDs: %s", device.device_id, control_ids)
+            except Exception as e:
+                _LOGGER.warning("Failed to request refresh for device %s: %s", device.device_id, e)
+
+        # Wait for all refresh commands to complete (with timeout)
+        if all_control_ids:
+            _LOGGER.debug("Waiting for %d device refresh commands to complete", len(all_control_ids))
+            for device, control_ids in all_control_ids:
+                try:
+                    await self.cocoro.wait_for_control_completion(
+                        device,
+                        control_ids,
+                        timeout=3.0,
+                        poll_interval=0.3
+                    )
+                except TimeoutError:
+                    _LOGGER.debug("Refresh command timed out for device %s, continuing anyway", device.device_id)
+                except Exception as e:
+                    _LOGGER.debug("Error waiting for refresh completion: %s", e)
+
+            # Small delay to ensure cloud has updated values
+            await asyncio.sleep(0.5)
+
+        # Now query the fresh device data
+        api_devices = await self.cocoro.query_devices()
+        api_device_map = {d.device_id: d for d in api_devices}
+
+        for i, device in enumerate(self.devices):
+            if device.device_id in api_device_map:
+                self.devices[i] = api_device_map[device.device_id]
+                _LOGGER.debug("Device %s refreshed from API", device.device_id)
+                self.hass.bus.async_fire(
+                    "sharp_cocoro.device_updated", {"device_id": device.device_id}
+                )
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: CocoroConfigEntry) -> bool:
     """Set up Sharp Cocoro Air from a config entry."""
     app_secret = entry.data[CONF_SECRET]
     app_key = entry.data[CONF_KEY]
+    app_service_name = entry.data[CONF_SERVICE_NAME]
     _LOGGER.info("Initializing Sharp Cocoro Air with app key: %s", app_key)
 
     # Get Home Assistant's managed aiohttp session
@@ -144,7 +184,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: CocoroConfigEntry) -> bo
     try:
         _LOGGER.info("Creating Cocoro client with session")
         # Create Cocoro client with HA's session to avoid SSL blocking
-        cocoro = Cocoro(app_secret=app_secret, app_key=app_key, session=session)
+        cocoro = Cocoro(app_secret=app_secret, app_key=app_key, service_name=app_service_name, session=session)
         _LOGGER.info("Successfully created Cocoro client")
     except Exception as e:
         _LOGGER.error("Failed to create Cocoro client: %s", e)
@@ -158,28 +198,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: CocoroConfigEntry) -> bo
         _LOGGER.info("Login successful")
         
         _LOGGER.info("Querying devices")
-        devices = await cocoro.query_devices()
+        devices = list(await cocoro.query_devices())
         _LOGGER.info("Query devices successful, found %d devices", len(devices) if devices else 0)
 
         if not devices:
             _LOGGER.error("No devices found")
             return False
 
-        device = devices[0]
-        _LOGGER.info("Discovered device: %s (ID: %s)", device.name, device.device_id)
+        _LOGGER.info("Discovered %d device(s):", len(devices))
+        for device in devices:
+            _LOGGER.info("  - %s (ID: %s)", device.name, device.device_id)
 
         # Create data container with credentials for re-authentication
         scd = SharpCocoroData(
             cocoro=cocoro,
-            device=device,
+            devices=devices,
             hass=hass,
             app_key=app_key,
             app_secret=app_secret,
             last_login_time=datetime.now(),
         )
 
-        # Set up periodic device refresh (every 15 seconds)
-        async_track_time_interval(hass, scd.async_refresh_data, timedelta(seconds=15))
+        # Set up periodic device refresh (every 60 seconds)
+        # Note: Each refresh sends a command to the device to report fresh values
+        async_track_time_interval(hass, scd.async_refresh_data, timedelta(seconds=60))
 
         # Set up periodic token refresh (every 30 minutes)
         async def async_refresh_token(_):

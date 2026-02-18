@@ -11,6 +11,10 @@ from sharp_cocoro import Cocoro
 from sharp_cocoro.devices.aircon.aircon_properties import FanDirection
 from sharp_cocoro.devices.aircon.aircon_properties import StatusCode
 from sharp_cocoro.devices.aircon.aircon_properties import ValueSingle
+from sharp_cocoro.properties import RangePropertyStatus
+
+# Status code for humidity from the Sharp Cocoro API
+STATUS_CODE_HUMIDITY = "BA"
 
 from . import SharpCocoroData
 from .const import DOMAIN
@@ -63,10 +67,13 @@ def debounce(wait_time):
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Set up the Sharp Cocoro Air fan platform."""
-    cocoro_device = entry.runtime_data
-    assert isinstance(cocoro_device, SharpCocoroData)
-    async_add_entities([SharpCocoroAircon(cocoro_device)])
+    """Set up the Sharp Cocoro Air climate platform."""
+    cocoro_data = entry.runtime_data
+    assert isinstance(cocoro_data, SharpCocoroData)
+    async_add_entities([
+        SharpCocoroAircon(cocoro_data, device_index)
+        for device_index in range(len(cocoro_data.devices))
+    ])
 
 
 FANDIRECTION_SWING_MAPPING = {
@@ -134,21 +141,22 @@ class SharpCocoroAircon(ClimateEntity):
 
     @property
     def _device(self) -> Aircon:
-        return self._cocoro_data.device
+        return self._cocoro_data.devices[self._device_index]
 
     @property
     def _cocoro(self) -> Cocoro:
         return self._cocoro_data.cocoro
 
-    def __init__(self, cocoro_data: SharpCocoroData):
-        """Initialize the fan."""
+    def __init__(self, cocoro_data: SharpCocoroData, device_index: int):
+        """Initialize the climate entity."""
         self._cocoro_data = cocoro_data
+        self._device_index = device_index
 
         self._attr_name = self._device.name
-        self._attr_unique_id = str(self._device.device_id)
+        self._attr_unique_id = f"{self._device.device_id}_climate"
 
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, self._device.device_id)},
+            identifiers={(DOMAIN, str(self._device.device_id))},
             name=self._device.name,
             manufacturer=self._device.maker,
             model=self._device.model,
@@ -291,7 +299,30 @@ class SharpCocoroAircon(ClimateEntity):
     @property
     def current_temperature(self) -> float | None:
         """Return the current temperature."""
-        return self._device.get_room_temperature()
+        temp = self._device.get_room_temperature()
+        # Filter out invalid values (device returns garbage when off)
+        if temp is None or temp < -40 or temp > 60:
+            return None
+        return temp
+
+    @property
+    def current_humidity(self) -> int | None:
+        """Return the current humidity."""
+        prop_status = self._device.get_property_status(STATUS_CODE_HUMIDITY)
+        if prop_status is None:
+            return None
+        if isinstance(prop_status, RangePropertyStatus):
+            code = prop_status.valueRange.get("code")
+            if code is not None:
+                try:
+                    humidity = int(code)
+                    # Filter out invalid values (device returns garbage when off)
+                    if humidity < 0 or humidity > 100:
+                        return None
+                    return humidity
+                except ValueError:
+                    return None
+        return None
 
     @property
     def target_temperature(self) -> float | None:
