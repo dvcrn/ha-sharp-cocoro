@@ -1,6 +1,6 @@
 [project]
 name = "ha-sharp-cocoro"
-version = "1.2"
+version = "1.3.3"
 description = ""
 authors = [{name = "David Mohl", email = "git@d.sh"}]
 readme = "README.md"
