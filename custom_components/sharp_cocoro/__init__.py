@@ -174,7 +174,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: CocoroConfigEntry) -> bo
     """Set up Sharp Cocoro Air from a config entry."""
     app_secret = entry.data[CONF_SECRET]
     app_key = entry.data[CONF_KEY]
-    app_service_name = entry.data[CONF_SERVICE_NAME]
+    app_service_name = entry.data.get(CONF_SERVICE_NAME, "iClub")
     _LOGGER.info("Initializing Sharp Cocoro Air with app key: %s", app_key)
 
     # Get Home Assistant's managed aiohttp session
