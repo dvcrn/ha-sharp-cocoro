@@ -43,22 +43,20 @@ POST /setting/login/?appSecret=<SECRET>&serviceName=sharp-egy
 GET  /setting/boxInfo/?appSecret=<SECRET>&mode=other
 ```
 
-Three things about this are worth knowing before you start.
+A few things worth knowing before you start:
 
-**`app_key` is only the trailing `<KEY>`.** The mint endpoint hands back the full
-`https://db.cloudlabs.sharp.co.jp/clpf/key/…` URL, but the integration's
-`app_key` field holds the tail and prepends the prefix itself. Paste the whole
-URL in and you get it doubled.
-
-**After `login`, the API authenticates by session cookie.** `boxInfo` and
-`control/deviceProperty` carry only `appSecret`, no `terminalAppId`. Calling
-them without having logged in on the same connection returns **401**, which
-looks exactly like a bad key and is not.
-
-**`tempAccToken` is needed exactly once.** It exists to *bind* a terminalAppId.
-Once bound, that id authenticates on its own indefinitely. This matters: it means
-whatever awkwardness you go through to get a token, you go through once, at
-setup, not on a schedule and not in the middle of the night.
+- **`app_key` is only the trailing `<KEY>`.** The mint endpoint hands back the
+  full `https://db.cloudlabs.sharp.co.jp/clpf/key/…` URL, but the
+  integration's `app_key` field holds the tail and prepends the prefix
+  itself. Paste the whole URL in and you get it doubled.
+- **After `login`, the API authenticates by session cookie.** `boxInfo` and
+  `control/deviceProperty` carry only `appSecret`, no `terminalAppId`.
+  Calling them without having logged in on the same connection returns
+  **401**, which looks exactly like a bad key and is not.
+- **`tempAccToken` is needed exactly once.** It exists to *bind* a
+  terminalAppId. Once bound, that id authenticates on its own indefinitely:
+  whatever it takes to get a token happens once, at setup, not on a
+  schedule and not in the middle of the night.
 
 ## The part that has no clean answer: `tempAccToken`
 
@@ -87,8 +85,7 @@ https://elaiotb2cprd.b2clogin.com/elaiotb2cprd.onmicrosoft.com/b2c_1a_signup_sig
 
 (all on one line, no spaces)
 
-Save yourself the search. These do not work, and each was tested rather than
-assumed:
+These do not work, and each was tested rather than assumed:
 
 - **The password grant (ROPC) is not available.** With a correctly formed scope,
   `grant_type=password` against `b2c_1a_signup_signin` returns
@@ -115,10 +112,9 @@ token out of where the app's WebView would have received it:
 4. That `id_token` is your `tempAccToken`. Use it promptly; it is good for
    minutes.
 
-Doing it in a real browser rather than by posting the form yourself is not
-fussiness. The hosted flow can insert multi-factor auth, a consent screen, terms
-to accept, or a forced password change, and a browser can answer all of those
-while a scripted form post cannot answer any of them.
+Do this in a real browser rather than posting the form yourself: the hosted
+flow can insert multi-factor auth, a consent screen, terms to accept, or a
+forced password change, and only a real browser can get through all of those.
 
 ## Getting `app_secret`
 
@@ -128,9 +124,9 @@ effectively an API credential shared by every user of that build.
 
 The traffic-capture routes people usually reach for (a proxy with TLS
 interception, or an instrumented emulator) do work and will show you both the
-secret and a live `tempAccToken` in one go. Worth knowing before you commit an
-evening to it: **you do not need a capture for `app_key`**, because that is
-minted, not found. A capture is only for the secret.
+secret and a live `tempAccToken` in one go. **You do not need a capture for
+`app_key`**, though, because that is minted, not found. A capture is only for
+the secret.
 
 ## The failure mode that will actually get you
 
@@ -180,7 +176,7 @@ touches them.
 | What you see | What it means |
 | --- | --- |
 | `400` + `{"errorCode":null,"errorMessage":null}` from `setting/login/` | The bind did **not** happen. It reads like success. Every later call will 401. |
-| `400` + an **empty body** from `control/deviceProperty` | This terminal is not paired to that box. An authorisation failure wearing the wrong status code: it looks like a malformed request and sends you hunting for a missing parameter. |
+| `400` + an **empty body** from `control/deviceProperty` | This terminal is not paired to that box. It looks like a malformed request, but it is an authorization failure with the wrong status code. |
 | `401` from `boxInfo` | You never logged in on this connection, or the bind failed earlier. Not necessarily a bad key. |
 | `500` from `setting/login/` | The `tempAccToken` was expired or malformed. They last minutes. |
 | Every call fails, and the secret ends in `=` | See below. |
