@@ -3,7 +3,7 @@
 Sharp appliances sold in Egypt are distributed by El Araby, and they do **not**
 live on the same Cocoro service as the Japanese units this integration was
 written against. The service name is `sharp-egy`, and the account login is not
-Sharp's at all — it is El Araby's own Azure AD B2C tenant.
+Sharp's at all. It is El Araby's own Azure AD B2C tenant.
 
 Nothing here is specific to one household. It is written down because none of it
 is documented anywhere, and because two of the failure modes are actively
@@ -22,7 +22,7 @@ words hide:
 | --- | --- |
 | `service_name` | `sharp-egy` for Egypt. **Not** `iClub`, which is the library default, and **not** `SYSINNO`, which appears in the app's strings and is a red herring. |
 | `app_secret` | A constant belonging to the **app build**, not to your account. Everyone using the same APK has the same one. |
-| `app_key` | A `terminalAppId`. It is **minted per installation** — it is not a durable secret you go and find. |
+| `app_key` | A `terminalAppId`. It is **minted per installation**, not a durable secret you go and find. |
 
 That last row is the one that changes how you approach this. Two successive
 requests to the mint endpoint return two different ids. There is nothing stable
@@ -51,14 +51,14 @@ Three things about this are worth knowing before you start.
 URL in and you get it doubled.
 
 **After `login`, the API authenticates by session cookie.** `boxInfo` and
-`control/deviceProperty` carry only `appSecret` — no `terminalAppId`. Calling
+`control/deviceProperty` carry only `appSecret`, no `terminalAppId`. Calling
 them without having logged in on the same connection returns **401**, which
 looks exactly like a bad key and is not.
 
 **`tempAccToken` is needed exactly once.** It exists to *bind* a terminalAppId.
 Once bound, that id authenticates on its own indefinitely. This matters: it means
 whatever awkwardness you go through to get a token, you go through once, at
-setup — not on a schedule, and not in the middle of the night.
+setup, not on a schedule and not in the middle of the night.
 
 ## The part that has no clean answer: `tempAccToken`
 
@@ -72,7 +72,7 @@ flow       response_type=id_token, scope=openid   (implicit, in a WebView)
 redirect   https://sharp-cocoroair-egypt
 ```
 
-The client id is the app's public OAuth client identifier, not a secret — it is
+The client id is the app's public OAuth client identifier, not a secret. It is
 in the APK and in every request the app makes. The URL to open is:
 
 ```
@@ -87,7 +87,7 @@ https://elaiotb2cprd.b2clogin.com/elaiotb2cprd.onmicrosoft.com/b2c_1a_signup_sig
 
 (all on one line, no spaces)
 
-Save yourself the search — these do not work, and each was tested rather than
+Save yourself the search. These do not work, and each was tested rather than
 assumed:
 
 - **The password grant (ROPC) is not available.** With a correctly formed scope,
@@ -110,7 +110,7 @@ token out of where the app's WebView would have received it:
 1. Open the authorize URL for the tenant above in a normal browser.
 2. Sign in with your Cocoro account.
 3. The browser finishes on an address that **fails to load**, beginning
-   `https://sharp-cocoroair-egypt#id_token=…`. The failure is expected — that
+   `https://sharp-cocoroair-egypt#id_token=…`. The failure is expected: that
    page does not exist. The address bar is the point.
 4. That `id_token` is your `tempAccToken`. Use it promptly; it is good for
    minutes.
@@ -126,8 +126,8 @@ It is a constant in the Android app, so it comes out of the APK or out of one
 observed request. It is not published here, and it should not be: it is
 effectively an API credential shared by every user of that build.
 
-The traffic-capture routes people usually reach for — a proxy with TLS
-interception, or an instrumented emulator — do work and will show you both the
+The traffic-capture routes people usually reach for (a proxy with TLS
+interception, or an instrumented emulator) do work and will show you both the
 secret and a live `tempAccToken` in one go. Worth knowing before you commit an
 evening to it: **you do not need a capture for `app_key`**, because that is
 minted, not found. A capture is only for the secret.
@@ -149,7 +149,7 @@ second appliance   trusts  T2 (app 1.0.4),  T3 (app 1.0.4)
 ```
 
 Only **T2** is on both, and T2 is the only one of the three that works as an
-`app_key`. **T3 had been minted and bound fresh** — and it reads one box and
+`app_key`. **T3 had been minted and bound fresh**, and it reads one box and
 400s on the other.
 
 Why that breaks everything rather than half of everything: device enumeration
@@ -180,7 +180,7 @@ touches them.
 | What you see | What it means |
 | --- | --- |
 | `400` + `{"errorCode":null,"errorMessage":null}` from `setting/login/` | The bind did **not** happen. It reads like success. Every later call will 401. |
-| `400` + an **empty body** from `control/deviceProperty` | This terminal is not paired to that box. An authorisation failure wearing the wrong status code — it looks like a malformed request and sends you hunting for a missing parameter. |
+| `400` + an **empty body** from `control/deviceProperty` | This terminal is not paired to that box. An authorisation failure wearing the wrong status code: it looks like a malformed request and sends you hunting for a missing parameter. |
 | `401` from `boxInfo` | You never logged in on this connection, or the bind failed earlier. Not necessarily a bad key. |
 | `500` from `setting/login/` | The `tempAccToken` was expired or malformed. They last minutes. |
 | Every call fails, and the secret ends in `=` | See below. |
@@ -197,8 +197,8 @@ Do not trust the response from `login`. The only test that counts is whether an
 authenticated endpoint answers, and whether it answers for **every** box:
 
 1. `POST setting/login/` with the key.
-2. `GET setting/boxInfo/` on the same connection — expect 200 and a box list.
-3. `GET control/deviceProperty` for each box — expect 200 for all of them.
+2. `GET setting/boxInfo/` on the same connection: expect 200 and a box list.
+3. `GET control/deviceProperty` for each box: expect 200 for all of them.
 
 If step 3 succeeds for some boxes and 400s for others, you have a pairing
 problem, not a credentials problem, and the section above applies.
